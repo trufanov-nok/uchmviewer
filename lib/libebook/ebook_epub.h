@@ -25,7 +25,6 @@
 #include <QUrl>
 
 #include "ebook.h"
-#include "zip.h"
 
 class QXmlDefaultHandler;
 
@@ -35,6 +34,8 @@ class EBook_EPUB : public EBook
 	public:
 		EBook_EPUB();
 		virtual ~EBook_EPUB();
+
+		static const char * URL_SCHEME_EPUB;
 
 		/*!
 		 * \brief Attempts to load epub file.

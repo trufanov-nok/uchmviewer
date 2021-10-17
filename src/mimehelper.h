@@ -1,6 +1,6 @@
 /*
  *  Kchmviewer - a CHM and EPUB file viewer with broad language support
- *  Copyright (C) 2004-2014 George Yunaev, gyunaev@ulduzsoft.com
+ *  Copyright (C) 2021 Nick Egorrov, nicegorov@yandex.ru
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,10 +16,24 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef INCLUDE_VERSION_H
-#define INCLUDE_VERSION_H
+#ifndef MIMEHELPER_H
+#define MIMEHELPER_H
 
-#define APP_VERSION_MAJOR	8
-#define APP_VERSION_MINOR	0
+class QByteArray;
+class QUrl;
 
-#endif /* INCLUDE_VERSION_H */
+// Since Qt 5.0 there is a QMimeDatabase class in Qt which does more detailed content analysis.
+// But kchmviewer hasn't given up building with Qt 4 yet.
+class MimeHelper
+{
+public:
+    /**
+     * @brief Assumes MIME type by url or content.
+     * @param url File address.
+     * @param buf File contents.
+     * @return "text/css", "text/html", "text/js" or "application/octet-stream".
+     */
+    static QByteArray mimeType( const QUrl &url, const QByteArray &buf );
+};
+
+#endif // MIMEHELPER_H

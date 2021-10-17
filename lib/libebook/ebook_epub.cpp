@@ -25,12 +25,14 @@
 #include <QMessageBox>
 #include <QtXml/QXmlSimpleReader>
 
+#include "zip.h"
+
 #include "ebook_epub.h"
 #include "helperxmlhandler_epubcontainer.h"
 #include "helperxmlhandler_epubcontent.h"
 #include "helperxmlhandler_epubtoc.h"
 
-static const char * URL_SCHEME_EPUB = "epub";
+const char * EBook_EPUB::URL_SCHEME_EPUB = "epub";
 
 EBook_EPUB::EBook_EPUB()
     : EBook()
@@ -166,7 +168,7 @@ QString EBook_EPUB::currentEncoding() const
 
 bool EBook_EPUB::setCurrentEncoding(const char *)
 {
-	abort();
+	return false;
 }
 
 bool EBook_EPUB::isSupportedUrl(const QUrl &url)

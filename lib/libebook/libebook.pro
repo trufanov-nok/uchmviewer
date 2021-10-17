@@ -1,4 +1,11 @@
-HEADERS += 	bitfiddle.h \
+
+TEMPLATE = lib
+TARGET = ebook
+CONFIG *= c++11 warn_on staticlib
+QT += widgets
+
+HEADERS += \
+    bitfiddle.h \
     ebook_chm.h \
     ebook_epub.h \
     ebook.h \
@@ -9,7 +16,8 @@ HEADERS += 	bitfiddle.h \
     helperxmlhandler_epubcontainer.h \
     helperxmlhandler_epubcontent.h \
     helperxmlhandler_epubtoc.h
-SOURCES +=  \
+
+SOURCES += \
     ebook_chm.cpp \
     ebook_epub.cpp \
     ebook.cpp \
@@ -20,13 +28,11 @@ SOURCES +=  \
     helperxmlhandler_epubcontainer.cpp \
     helperxmlhandler_epubcontent.cpp \
     helperxmlhandler_epubtoc.cpp
-TARGET = ebook
-CONFIG += warn_on \
-		  qt \
-		  staticlib
-TEMPLATE = lib
-INCLUDEPATH += ../../src
-QT += widgets
 
-# Only for Creator build
-#INCLUDEPATH += C:/Users/Test/Documents/builder/extralibs/x64/include
+!isEmpty(USE_STATIC_CHMLIB) {
+    INCLUDEPATH *= ../CHMLib/src
+} else {
+    !isEmpty(CHMLIB_ROOT): INCLUDEPATH *= "$$CHMLIB_ROOT/include"
+}
+
+!isEmpty(LIBZIP_ROOT): INCLUDEPATH *= "$$LIBZIP_ROOT/include"

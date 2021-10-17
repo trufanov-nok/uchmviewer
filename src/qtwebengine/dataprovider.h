@@ -1,6 +1,7 @@
 /*
  *  Kchmviewer - a CHM and EPUB file viewer with broad language support
- *  Copyright (C) 2004-2014 George Yunaev, gyunaev@ulduzsoft.com
+ *  Copyright (C) 2004-2016 George Yunaev, gyunaev@ulduzsoft.com
+ *  Copyright (C) 2021 Nick Egorrov, nicegorov@yandex.ru
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,10 +17,17 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef INCLUDE_VERSION_H
-#define INCLUDE_VERSION_H
+#ifndef QTWEBENGINE_DATAPROVIDER_H
+#define QTWEBENGINE_DATAPROVIDER_H
 
-#define APP_VERSION_MAJOR	8
-#define APP_VERSION_MINOR	0
+#include <QWebEngineUrlSchemeHandler>
 
-#endif /* INCLUDE_VERSION_H */
+class DataProvider : public QWebEngineUrlSchemeHandler
+{
+    public:
+        DataProvider( QObject *parent );
+
+        void requestStarted( QWebEngineUrlRequestJob *request );
+};
+
+#endif // QTWEBENGINE_DATAPROVIDER_H
