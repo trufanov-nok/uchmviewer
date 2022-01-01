@@ -63,37 +63,39 @@ void DataProvider::requestStarted( QWebEngineUrlRequestJob *request )
 #endif
 
     // Retreive the data from ebook file
-    QByteArray buf;
-
-    if ( !::mainWindow->chmFile()->getFileContentAsBinary( buf, url ) )
+    ::mainWindow->chmFile()->
+            getFileContentAsBinary( url, [&]( bool success, QByteArray buf )
     {
-        qWarning( "Could not resolve file %s\n", qPrintable( url.toString() ) );
-        request->fail( QWebEngineUrlRequestJob::UrlNotFound );
-        return;
-    }
-
-    QByteArray mimetype = MimeHelper::mimeType( url, buf );
-
-    // We must specify the proper MIME type for the page to display correctly.
-    // The HTML and XML files correspond to "text/html";
-    // for other types "application/octet-stream" is sufficient.
-    // In addition, for "text/html", a "meta" tag is added specifying the text encoding.
-    // This is the easiest and most stable way to set the encoding.
-    if ( mimetype == "text/html")
-    {
-        buf.prepend(QString( "<META http-equiv='Content-Type' content='text/html; charset=%1'>" )
-                    .arg( ::mainWindow->chmFile()->currentEncoding() ).toLatin1() );
-    }
-
-    // We will use the buffer because reply() requires the QIODevice.
-    // This buffer must be valid until the request is deleted.
-    QBuffer * outbuf = new QBuffer;
-    outbuf->setData( buf );
-    outbuf->close();
-
-    // Only delete the buffer when the request is deleted too
-    connect( request, SIGNAL( destroyed() ), outbuf, SLOT( deleteLater() ) );
-
-    // We're good to go
-    request->reply( mimetype, outbuf );
+        if ( !success )
+        {
+            qWarning( "Could not resolve file %s\n", qPrintable( url.toString() ) );
+            request->fail( QWebEngineUrlRequestJob::UrlNotFound );
+            return;
+        }
+    
+        QByteArray mimetype = MimeHelper::mimeType( url, buf );
+    
+        // We must specify the proper MIME type for the page to display correctly.
+        // The HTML and XML files correspond to "text/html";
+        // for other types "application/octet-stream" is sufficient.
+        // In addition, for "text/html", a "meta" tag is added specifying the text encoding.
+        // This is the easiest and most stable way to set the encoding.
+        if ( mimetype == "text/html")
+        {
+            buf.prepend(QString( "<META http-equiv='Content-Type' content='text/html; charset=%1'>" )
+                        .arg( ::mainWindow->chmFile()->currentEncoding() ).toLatin1() );
+        }
+    
+        // We will use the buffer because reply() requires the QIODevice.
+        // This buffer must be valid until the request is deleted.
+        QBuffer * outbuf = new QBuffer;
+        outbuf->setData( buf );
+        outbuf->close();
+    
+        // Only delete the buffer when the request is deleted too
+        connect( request, SIGNAL( destroyed() ), outbuf, SLOT( deleteLater() ) );
+    
+        // We're good to go
+        request->reply( mimetype, outbuf );
+    });
 }

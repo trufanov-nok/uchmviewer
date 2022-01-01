@@ -15,7 +15,11 @@ HEADERS += \
     helper_search_index.h \
     helperxmlhandler_epubcontainer.h \
     helperxmlhandler_epubcontent.h \
-    helperxmlhandler_epubtoc.h
+    helperxmlhandler_epubtoc.h \
+    base_async_ebook.hpp \
+    async_result.hpp \
+    dummy_async_ebook.hpp
+
 
 SOURCES += \
     ebook_chm.cpp \
@@ -27,7 +31,8 @@ SOURCES += \
     helper_search_index.cpp \
     helperxmlhandler_epubcontainer.cpp \
     helperxmlhandler_epubcontent.cpp \
-    helperxmlhandler_epubtoc.cpp
+    helperxmlhandler_epubtoc.cpp \
+    dummy_async_ebook.cpp
 
 !isEmpty(USE_STATIC_CHMLIB) {
     INCLUDEPATH *= ../CHMLib/src

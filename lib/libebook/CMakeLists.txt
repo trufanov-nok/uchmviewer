@@ -13,11 +13,13 @@ set(CPP_SOURCES
     helperxmlhandler_epubcontainer.cpp
     helperxmlhandler_epubcontent.cpp
     helperxmlhandler_epubtoc.cpp
+    dummy_async_ebook.cpp
     )
 
 set(MOC_HEADERS
     ebook_search.h
     helper_search_index.h
+    dummy_async_ebook.hpp
     )
 
 qt_wrap_cpp(MOC_SOURCES ${MOC_HEADERS})

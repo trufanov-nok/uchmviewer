@@ -34,7 +34,7 @@ class KCHMNetworkReply : public QNetworkReply
 
 	protected:
 		virtual qint64 readData(char *buffer, qint64 maxlen);
-		QByteArray loadResource( const QUrl &url );
+		void loadResource( const QUrl &url );
 
 	private:
 		QByteArray	m_data;

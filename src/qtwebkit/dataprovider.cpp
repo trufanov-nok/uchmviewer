@@ -29,17 +29,7 @@ KCHMNetworkReply::KCHMNetworkReply( const QNetworkRequest &request, const QUrl &
 {
 	setRequest( request );
 	setOpenMode( QIODevice::ReadOnly );
-
-	m_data = loadResource( url );
-	m_length = m_data.length();
-
-	setHeader( QNetworkRequest::ContentLengthHeader, QByteArray::number(m_data.length()) );
-	QMetaObject::invokeMethod(this, "metaDataChanged", Qt::QueuedConnection);
-
-	if ( m_length )
-		QMetaObject::invokeMethod(this, "readyRead", Qt::QueuedConnection);
-
-	QMetaObject::invokeMethod(this, "finished", Qt::QueuedConnection);
+	loadResource( url );
 }
 
 qint64 KCHMNetworkReply::bytesAvailable() const
@@ -57,37 +47,48 @@ qint64 KCHMNetworkReply::readData(char *buffer, qint64 maxlen)
 
 	if (len)
 	{
-        memcpy(buffer, m_data.constData(), len);
+		memcpy(buffer, m_data.constData(), len);
 		m_data.remove(0, len);
 	}
 
 	return len;
 }
 
-QByteArray KCHMNetworkReply::loadResource( const QUrl &url )
+void KCHMNetworkReply::loadResource( const QUrl &url )
 {
-    //qDebug("loadResource %s", qPrintable(url.toString()) );
+	//qDebug("loadResource %s", qPrintable(url.toString()) );
 
 	// Retreive the data from ebook file
-	QByteArray buf;
-
-	if ( !::mainWindow->chmFile()->getFileContentAsBinary( buf, url ) )
+	::mainWindow->chmFile()->
+			getFileContentAsBinary( url, [&]( bool success, QByteArray buf )
 	{
-		qWarning( "Could not resolve file %s\n", qPrintable( url.toString() ) );
-
-	}
+		if ( !success )
+		{
+			qWarning( "Could not resolve file %s\n", qPrintable( url.toString() ) );
 	
-	QString mime = MimeHelper::mimeType( url, buf );
-
-    if ( mime == "text/html" || mime == "text/xhtml" || mime == "text/xml" )
-    {
-        QString header = QString( "%1; charset=%2")
-                .arg( mime )
-                .arg( ::mainWindow->chmFile()->currentEncoding() );
-        setHeader( QNetworkRequest::ContentTypeHeader, header );
-    }
-
-	return buf;
+		}
+		
+		QString mime = MimeHelper::mimeType( url, buf );
+	
+		if ( mime == "text/html" || mime == "text/xhtml" || mime == "text/xml" )
+		{
+			QString header = QString( "%1; charset=%2")
+					.arg( mime )
+					.arg( ::mainWindow->chmFile()->currentEncoding() );
+			setHeader( QNetworkRequest::ContentTypeHeader, header );
+		}
+		
+		m_data = buf;
+		m_length = m_data.length();
+	
+		setHeader( QNetworkRequest::ContentLengthHeader, QByteArray::number(m_data.length()) );
+		QMetaObject::invokeMethod(this, "metaDataChanged", Qt::QueuedConnection);
+	
+		if ( m_length )
+			QMetaObject::invokeMethod(this, "readyRead", Qt::QueuedConnection);
+	
+		QMetaObject::invokeMethod(this, "finished", Qt::QueuedConnection);
+	});
 }
 
 
@@ -98,7 +99,7 @@ KCHMNetworkAccessManager::KCHMNetworkAccessManager( QObject *parent )
 
 QNetworkReply * KCHMNetworkAccessManager::createRequest( Operation op, const QNetworkRequest &request, QIODevice *outgoingData )
 {
-    //qDebug("KCHMNetworkAccessManager::createRequest %s", qPrintable( request.url().toString()) );
+	//qDebug("KCHMNetworkAccessManager::createRequest %s", qPrintable( request.url().toString()) );
 
 	if ( ::mainWindow->chmFile()->isSupportedUrl( request.url() ) )
 		return new KCHMNetworkReply( request, request.url() );

@@ -46,6 +46,7 @@
 #include "version.h"
 #include "textencodings.h"
 #include "ui_dialog_about.h"
+#include "dummy_async_ebook.hpp"
 
 #ifdef Q_WS_X11
     #include <QX11Info>
@@ -78,7 +79,7 @@ MainWindow::MainWindow( const QStringList& arguments )
 	else
 		qApp->setLayoutDirection( Qt::LeftToRight );
 	
-	m_ebookFile = 0;
+	m_ebookFile = new DummyAsyncEBook();
 	m_autoteststate = STATE_OFF;
     m_sharedMemory = 0;
 
@@ -136,6 +137,7 @@ MainWindow::~MainWindow()
 		delete m_tempFileKeeper.takeFirst();
 
     delete m_sharedMemory;
+    delete m_ebookFile;
 }
 
 void MainWindow::launch()
@@ -243,19 +245,9 @@ bool MainWindow::loadFile ( const QString &loadFileName, bool call_open_page )
 	// Strip file:// prefix if any
 	if ( fileName.startsWith( "file://" ) )
 		fileName.remove( 0, 7 );
-			
-	EBook * new_ebook = EBook::loadFile( fileName );
 	
-	if ( new_ebook )
+	if ( m_ebookFile->loadFile( fileName ) )
 	{
-		// The new file is opened, so we can close the old one
-		if ( m_ebookFile )
-		{
-			closeFile( );
-			delete m_ebookFile;
-		}
-	
-		m_ebookFile = new_ebook;
 		updateActions();
 		
 		// Show current encoding in status bar
@@ -526,11 +518,10 @@ void MainWindow::closeFile( )
 void MainWindow::closeEvent ( QCloseEvent * e )
 {
 	// Save the settings if we have something opened
-	if ( m_ebookFile )
+	if ( m_ebookFile->isLoaded() )
 	{
 		closeFile( );
-		delete m_ebookFile;
-		m_ebookFile = 0;
+		m_ebookFile->close();
 	}
 
 	// Save toolbars
@@ -604,7 +595,7 @@ bool MainWindow::parseCmdLineArgs(const QStringList& args , bool from_another_ap
 	if ( !filename.isEmpty() )
 	{
         // If we have already opened the same file, no need to reopen it again
-        if ( !m_ebookFile || QDir(m_ebookFilename) != QDir(filename) )
+        if ( !m_ebookFile->isLoaded() || QDir(m_ebookFilename) != QDir(filename) )
             if ( !loadFile( filename ) )
                 return true; // skip the latest checks, but do not exit from the program
 
@@ -885,7 +876,7 @@ void MainWindow::actionExtractCHM()
 	outdir += "/";
 	
 	// Enumerate all the files in archive
-	if ( !m_ebookFile || !m_ebookFile->enumerateFiles( files ) )
+	if ( !m_ebookFile->isLoaded() || !m_ebookFile->enumerateFiles( files ) )
 		return;
 
 	KQProgressModalDialog progress( i18n("Extracting CHM content"), 
@@ -974,44 +965,57 @@ void MainWindow::actionFontSizeDecrease()
 
 void MainWindow::actionViewHTMLsource()
 {
-	QString text;
-
-	if ( !m_ebookFile->getFileContentAsString( text, currentBrowser()->getOpenedPage() ) || text.isEmpty() )
-		return;
+	QUrl page = currentBrowser()->getOpenedPage();
 
 	if ( pConfig->m_advUseInternalEditor )
 	{
-		QTextEdit * editor = new QTextEdit ( 0 );
-		editor->setPlainText( text );
-		editor->setWindowTitle( i18n("HTML source") );
-		editor->resize( 800, 600 );
-		editor->show();
+		m_ebookFile->getFileContentAsString( page, [&](bool success, QString text)
+		{
+			if( !success )
+			{
+				return;
+			}
+
+			QTextEdit * editor = new QTextEdit ( 0 );
+			editor->setPlainText( text );
+			editor->setWindowTitle( i18n("HTML source") );
+			editor->resize( 800, 600 );
+			editor->show();
+		});
 	}
 	else
 	{
-		QTemporaryFile * tf = new QTemporaryFile();
-		m_tempFileKeeper.append( tf );
+		m_ebookFile->getFileContentAsBinary( page, [&](bool success, QByteArray rawText)
+		{
+			if( !success )
+			{
+				return;
+			}
 
-		if ( !tf->open() )
-		{
-			qWarning("Cannot open created QTemporaryFile: something is wrong with your system");
-			return;
-		}
-		
-		tf->write( text.toUtf8() );
-		tf->seek( 0 );
-		
-		// Run the external editor
-		QStringList arguments;
-		arguments.push_back( tf->fileName() );
-		
-		if ( !QProcess::startDetached( pConfig->m_advExternalEditorPath, arguments, "." ) )
-		{
-			QMessageBox::warning( 0,
-								  i18n("Cannot start external editor"), 
-								  i18n("Cannot start external editor %1.\nMake sure the path is absolute!") .arg( pConfig->m_advExternalEditorPath ) );
-			delete m_tempFileKeeper.takeLast();
-		}
+			QTemporaryFile * tf = new QTemporaryFile();
+			m_tempFileKeeper.append( tf );
+
+			if ( !tf->open() )
+			{
+				qWarning("Cannot open created QTemporaryFile: something is wrong with your system");
+				return;
+			}
+
+			tf->write( rawText );
+			tf->seek( 0 );
+
+			// Run the external editor
+			QStringList arguments;
+			arguments.push_back( tf->fileName() );
+
+			if ( !QProcess::startDetached( pConfig->m_advExternalEditorPath, arguments, "." ) )
+			{
+				QMessageBox::warning( 0,
+									  i18n("Cannot start external editor"),
+									  i18n("Cannot start external editor %1.\nMake sure the path is absolute!") .arg( pConfig->m_advExternalEditorPath ) );
+				delete m_tempFileKeeper.takeLast();
+			}
+		});
 	}
 }
 
@@ -1389,12 +1393,12 @@ void MainWindow::setupPopupMenu( QMenu * menu )
 
 bool MainWindow::hasTableOfContents() const
 {
-	return m_ebookFile && m_ebookFile->hasFeature( EBook::FEATURE_TOC );
+	return m_ebookFile->hasFeature( EBook::FEATURE_TOC );
 }
 
 bool MainWindow::hasIndex() const
 {
-	return m_ebookFile && m_ebookFile->hasFeature( EBook::FEATURE_INDEX );
+	return m_ebookFile->hasFeature( EBook::FEATURE_INDEX );
 }
 
 const QPixmap *MainWindow::getEBookIconPixmap(EBookTocEntry::Icon imagenum)
@@ -1412,7 +1416,7 @@ const QPixmap *MainWindow::getEBookIconPixmap(EBookTocEntry::Icon imagenum)
 
 void MainWindow::updateActions()
 {
-	bool enabled = m_ebookFile != 0;
+	bool enabled = m_ebookFile->isLoaded();
 
 	file_Print_action->setEnabled( enabled );
 	edit_Copy_action->setEnabled( enabled );

@@ -22,7 +22,7 @@
 
 #include <QSharedMemory>
 
-#include "ebook.h"
+#include "base_async_ebook.hpp"
 #include "viewwindow.h"
 
 #include "ui_mainwindow.h"
@@ -68,7 +68,7 @@ class MainWindow : public QMainWindow, public Ui::MainWindow
 	
 		bool		openPage (const QUrl &url, unsigned int flags = OPF_CONTENT_TREE );
 		
-		EBook	*	chmFile() const	{ return m_ebookFile; }
+		BaseAsyncEBook*	chmFile() const	{ return m_ebookFile; }
 		const QString&	getOpenedFileName () { return m_ebookFilename; }
 		const QString&	getOpenedFileBaseName () { return m_ebookFileBasename; }
 		
@@ -174,7 +174,7 @@ class MainWindow : public QMainWindow, public Ui::MainWindow
 		QString 				m_ebookFileBasename;
 		
 		Settings			*	m_currentSettings;
-		EBook				*	m_ebookFile;
+		BaseAsyncEBook		*	m_ebookFile;
 		
 		QList<QTemporaryFile*>	m_tempFileKeeper;
 

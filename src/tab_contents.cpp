@@ -68,81 +68,82 @@ TabContents::~TabContents()
 void TabContents::refillTableOfContents( )
 {
 	ShowWaitCursor wc;
-	QList< EBookTocEntry > data;
-	
-	if ( !::mainWindow->chmFile()->getTableOfContents( data )
-	|| data.size() == 0 )
-	{
-		qWarning ("Table of contents is present but is empty; wrong parsing?");
-		return;
-	}
-
-	// Fill up the tree; we use a pretty complex routine to handle buggy CHMs
-	QVector< TreeItem_TOC *> lastchild;
-	QVector< TreeItem_TOC *> rootentry;
-	bool warning_shown = false;
-
-	tree->clear();
-
-	for ( int i = 0; i < data.size(); i++ )
-	{
-		int indent = data[i].indent;
-
-		// Do we need to add another indent?
-		if ( indent >= rootentry.size() )
-		{
-			int maxindent = rootentry.size() - 1;
-
-			// Resize the arrays
-			lastchild.resize( indent + 1 );
-			rootentry.resize( indent + 1 );
-
-			if ( indent > 0 && maxindent < 0 )
-				qFatal("Invalid fisrt TOC indent (first entry has no root entry), aborting.");
-
-			// And init the rest if needed
-			if ( (indent - maxindent) > 1 )
-			{
-				if ( !warning_shown )
-				{
-					qWarning("Invalid TOC step, applying workaround. Results may vary.");
-					warning_shown = true;
-				}
-
-				for ( int j = maxindent; j < indent; j++ )
-				{
-					lastchild[j+1] = lastchild[j];
-					rootentry[j+1] = rootentry[j];
-				}
-			}
-
-			lastchild[indent] = 0;
-			rootentry[indent] = 0;
-		}
-
-		// Create the node
-		TreeItem_TOC * item;
-
-		if ( indent == 0 )
-			item = new TreeItem_TOC( tree, lastchild[indent], data[i].name, data[i].url, data[i].iconid );
-		else
-		{
-			// New non-root entry. It is possible (for some buggy CHMs) that there is no previous entry: previoous entry had indent 1,
-			// and next entry has indent 3. Backtracking it up, creating missing entries.
-			if ( rootentry[indent-1] == 0 )
-				qFatal("Child entry indented as %d with no root entry!", indent);
-
-			item = new TreeItem_TOC( rootentry[indent-1], lastchild[indent], data[i].name, data[i].url, data[i].iconid );
-		}
-
-        if ( pConfig->m_tocOpenAllEntries )
-            item->setExpanded( true );
-
-		lastchild[indent] = item;
-		rootentry[indent] = item;
-	}
-
-	tree->update();
+    
+    mainWindow->chmFile()->getTableOfContents( [&]( bool success, QList< EBookTocEntry > data)
+    {
+        if ( !success || data.size() == 0 )
+        {
+            qWarning ("Table of contents is present but is empty; wrong parsing?");
+            return;
+        }
+    
+        // Fill up the tree; we use a pretty complex routine to handle buggy CHMs
+        QVector< TreeItem_TOC *> lastchild;
+        QVector< TreeItem_TOC *> rootentry;
+        bool warning_shown = false;
+    
+        tree->clear();
+    
+        for ( int i = 0; i < data.size(); i++ )
+        {
+            int indent = data[i].indent;
+    
+            // Do we need to add another indent?
+            if ( indent >= rootentry.size() )
+            {
+                int maxindent = rootentry.size() - 1;
+    
+                // Resize the arrays
+                lastchild.resize( indent + 1 );
+                rootentry.resize( indent + 1 );
+    
+                if ( indent > 0 && maxindent < 0 )
+                    qFatal("Invalid fisrt TOC indent (first entry has no root entry), aborting.");
+    
+                // And init the rest if needed
+                if ( (indent - maxindent) > 1 )
+                {
+                    if ( !warning_shown )
+                    {
+                        qWarning("Invalid TOC step, applying workaround. Results may vary.");
+                        warning_shown = true;
+                    }
+    
+                    for ( int j = maxindent; j < indent; j++ )
+                    {
+                        lastchild[j+1] = lastchild[j];
+                        rootentry[j+1] = rootentry[j];
+                    }
+                }
+    
+                lastchild[indent] = 0;
+                rootentry[indent] = 0;
+            }
+    
+            // Create the node
+            TreeItem_TOC * item;
+    
+            if ( indent == 0 )
+                item = new TreeItem_TOC( tree, lastchild[indent], data[i].name, data[i].url, data[i].iconid );
+            else
+            {
+                // New non-root entry. It is possible (for some buggy CHMs) that there is no previous entry: previoous entry had indent 1,
+                // and next entry has indent 3. Backtracking it up, creating missing entries.
+                if ( rootentry[indent-1] == 0 )
+                    qFatal("Child entry indented as %d with no root entry!", indent);
+    
+                item = new TreeItem_TOC( rootentry[indent-1], lastchild[indent], data[i].name, data[i].url, data[i].iconid );
+            }
+    
+            if ( pConfig->m_tocOpenAllEntries )
+                item->setExpanded( true );
+    
+            lastchild[indent] = item;
+            rootentry[indent] = item;
+        }
+    
+        tree->update();
+    });
 }
 
 
