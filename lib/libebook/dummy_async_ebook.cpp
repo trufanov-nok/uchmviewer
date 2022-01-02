@@ -18,12 +18,15 @@
 
 #include <QThread>
 #include <QMetaObject>
+#include <QMetaType>
 
 #include "async_result.hpp"
 #include "dummy_async_ebook.hpp"
 
 DummyAsyncEBook::DummyAsyncEBook()
 {
+    qRegisterMetaType<QList<EBookTocEntry>>("QList<EBookTocEntry>");
+    qRegisterMetaType<QList<EBookIndexEntry>>("QList<EBookIndexEntry>");
     m_metaEbook = new MetaEBook();
 }
 
@@ -208,7 +211,7 @@ bool DummyAsyncEBook::hasFeature(EBook::Feature code) const
                               "hasFeature",
                               Qt::BlockingQueuedConnection,
                               Q_RETURN_ARG(bool, result),
-                              Q_ARG(int, code));
+                              Q_ARG(EBook::Feature, code));
     return result;
 }
 
@@ -316,6 +319,11 @@ QString DummyAsyncEBook::urlToPath(const QUrl& url) const
     return result;
 }
 
+EBook* DummyAsyncEBook::ebook() const
+{
+    return m_metaEbook->ebook();
+}
+
 bool DummyAsyncEBook::setEbook(EBook* ebook)
 {
     bool result;
@@ -359,11 +367,6 @@ bool MetaEBook::setEbook(EBook* ebook)
 
     m_ebook = ebook;
     return m_ebook != nullptr;
-}
-
-EBook*MetaEBook::ebook()
-{
-    return m_ebook;
 }
 
 QString MetaEBook::title() const

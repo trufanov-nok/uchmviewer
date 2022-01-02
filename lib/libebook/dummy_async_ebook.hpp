@@ -28,13 +28,13 @@ class MetaEBook;
 
 /**
  * @brief Implementation of BaseAsyncEBook interface.
- * 
+ *
  * This class implements all methods of the EBook and BaseAsyncEBook classes
  * with multi-threading support, but does not contain a separate thread.
  *
  * A derived class with a separate thread must override the following
  * asynchronous methods:
- * @li loadFile(const QString&, const LoadFileFunctor&) 
+ * @li loadFile(const QString&, const LoadFileFunctor&)
  * @li getTableOfContents(const GetTocFunctor&)
  * @li getIndex(const GetIndexFunctor&)
  * @li getFileContentAsString(const QUrl&, const GetTextFunctor&)
@@ -95,6 +95,8 @@ protected:
     bool m_loaded = false;
     MetaEBook* m_metaEbook;
 
+    EBook* ebook() const;
+
     bool setEbook(EBook* ebook);
 };
 
@@ -107,9 +109,9 @@ class MetaEBook : public QObject
     Q_OBJECT
 public:
     MetaEBook();
-    
+
     ~MetaEBook();
-    
+
     inline bool isCurrentThread()
     {
         return this->thread() == QThread::currentThread();
@@ -120,9 +122,14 @@ public:
         return m_ebook != nullptr;
     }
 
-    bool setEbook(EBook* ebook);
+    inline EBook* ebook() const
+    {
+        return m_ebook;
+    }
 
-    inline EBook* ebook();
+
+public slots:
+    bool setEbook(EBook* ebook);
 
     QString title() const;
 
