@@ -22,6 +22,11 @@ set(MOC_HEADERS
     dummy_async_ebook.hpp
     )
 
+if (${USE_ASYNCEBOOK})
+    list(APPEND CPP_SOURCES async_ebook.cpp)
+    list(APPEND MOC_HEADERS async_ebook_impl.hpp)
+endif ()
+
 qt_wrap_cpp(MOC_SOURCES ${MOC_HEADERS})
 add_library(ebook STATIC ${CPP_SOURCES} ${MOC_SOURCES})
 target_link_libraries(ebook chm libzip::zip Qt::Core Qt::Widgets)

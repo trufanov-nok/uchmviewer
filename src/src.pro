@@ -130,3 +130,7 @@ unix:!macx: {
     SOURCES += qtwebkit/viewwindow.cpp qtwebkit/dataprovider.cpp qtwebkit/viewwindowmgr.cpp
     HEADERS += qtwebkit/dataprovider.h qtwebkit/viewwindow.h
 }
+
+!isEmpty(USE_ASYNCEBOOK) {
+    DEFINES += USE_ASYNCEBOOK
+}

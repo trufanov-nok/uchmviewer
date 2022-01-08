@@ -20,7 +20,6 @@ HEADERS += \
     async_result.hpp \
     dummy_async_ebook.hpp
 
-
 SOURCES += \
     ebook_chm.cpp \
     ebook_epub.cpp \
@@ -41,3 +40,9 @@ SOURCES += \
 }
 
 !isEmpty(LIBZIP_ROOT): INCLUDEPATH *= "$$LIBZIP_ROOT/include"
+
+!isEmpty(USE_ASYNCEBOOK) {
+    DEFINES += USE_ASYNCEBOOK
+    HEADERS += async_ebook.hpp async_ebook_impl.hpp
+    SOURCES += async_ebook.cpp
+}

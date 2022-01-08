@@ -16,6 +16,7 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <QAbstractEventDispatcher>
 #include <QThread>
 #include <QMetaObject>
 #include <QMetaType>
@@ -60,7 +61,7 @@ void DummyAsyncEBook::loadFile(const QString& file, const LoadFileFunctor& func)
 
 bool DummyAsyncEBook::isLoaded() const
 {
-    return m_loaded;
+    return m_metaEbook->isLoaded();
 }
 
 void DummyAsyncEBook::close()
@@ -82,13 +83,8 @@ bool DummyAsyncEBook::getTableOfContents(QList<EBookTocEntry>& toc) const
 
 void DummyAsyncEBook::getTableOfContents(const GetTocFunctor& func) const
 {
-    bool success = false;
     QList<EBookTocEntry> toc;
-
-    if (isLoaded()) {
-        success = m_metaEbook->ebook()->getTableOfContents(toc);
-    }
-
+    bool success = m_metaEbook->getTableOfContents(toc);
     func(success, toc);
 }
 
@@ -106,13 +102,8 @@ bool DummyAsyncEBook::getIndex(QList<EBookIndexEntry>& index) const
 
 void DummyAsyncEBook::getIndex(const GetIndexFunctor& func) const
 {
-    bool success = false;
     QList<EBookIndexEntry> index;
-
-    if (isLoaded()) {
-        success = m_metaEbook->ebook()->getIndex(index);
-    }
-
+    bool success = m_metaEbook->getIndex(index);
     func(success, index);
 }
 
@@ -130,13 +121,8 @@ bool DummyAsyncEBook::getFileContentAsString(QString& str, const QUrl& url) cons
 
 void DummyAsyncEBook::getFileContentAsString(const QUrl& url, const GetTextFunctor& func) const
 {
-    bool success = false;
     QString text;
-
-    if (isLoaded()) {
-        success = m_metaEbook->ebook()->getFileContentAsString(text, url);
-    }
-
+    bool success = m_metaEbook->getFileContentAsString(text, url);
     func(success, text);
 }
 
@@ -154,13 +140,8 @@ bool DummyAsyncEBook::getFileContentAsBinary(QByteArray& data, const QUrl& url) 
 
 void DummyAsyncEBook::getFileContentAsBinary(const QUrl& url, const GetBinFunctor& func) const
 {
-    bool success = false;
     QByteArray bin;
-
-    if (isLoaded()) {
-        success = m_metaEbook->ebook()->getFileContentAsBinary(bin, url);
-    }
-
+    bool success = m_metaEbook->getFileContentAsBinary(bin, url);
     func(success, bin);
 }
 
@@ -319,14 +300,10 @@ QString DummyAsyncEBook::urlToPath(const QUrl& url) const
     return result;
 }
 
-EBook* DummyAsyncEBook::ebook() const
-{
-    return m_metaEbook->ebook();
-}
-
 bool DummyAsyncEBook::setEbook(EBook* ebook)
 {
     bool result;
+    m_metaEbook->lock();
 
     if (m_metaEbook->isCurrentThread()) {
         result = m_metaEbook->setEbook(ebook);
@@ -338,7 +315,7 @@ bool DummyAsyncEBook::setEbook(EBook* ebook)
                                   Q_ARG(EBook*, ebook));
     }
 
-    m_loaded = result;
+    m_metaEbook->unlock();
     return result;
 }
 
@@ -350,12 +327,32 @@ bool DummyAsyncEBook::setEbook(EBook* ebook)
 MetaEBook::MetaEBook()
 {
     m_ebook = nullptr;
+    m_loaded = false;
+    m_enterable = false;
+    m_enter = 0;
 }
 
 MetaEBook::~MetaEBook()
 {
     if (m_ebook != nullptr) {
         delete m_ebook;
+    }
+}
+
+void MetaEBook::lock()
+{
+    m_enterable = false;
+    QAbstractEventDispatcher* dispatcher = QAbstractEventDispatcher::instance(0);
+
+    while (m_enter.load() != 0) {
+        dispatcher->processEvents(QEventLoop::AllEvents);
+    }
+}
+
+void MetaEBook::unlock()
+{
+    if (m_loaded) {
+        m_enterable = true;
     }
 }
 
@@ -366,95 +363,188 @@ bool MetaEBook::setEbook(EBook* ebook)
     }
 
     m_ebook = ebook;
+    m_loaded = m_ebook != nullptr;
     return m_ebook != nullptr;
 }
 
 QString MetaEBook::title() const
 {
-    if (isLoaded()) {
-        return m_ebook->title();
-    }  else {
-        return QString();
+    QString result;
+
+    if (isEnterable()) {
+        enter();
+        result = m_ebook->title();
+        leave();
     }
+
+    return result;
 }
 
 QUrl MetaEBook::homeUrl() const
 {
-    if (isLoaded()) {
-        return m_ebook->homeUrl();
-    }  else {
-        return QUrl();
+    QUrl result;
+
+    if (isEnterable()) {
+        enter();
+        result = m_ebook->homeUrl();
+        leave();
     }
+
+    return result;
 }
 
 bool MetaEBook::hasFeature(EBook::Feature code) const
 {
-    if (isLoaded()) {
-        return m_ebook->hasFeature(code);
-    }  else {
-        return false;
+    bool result = false;
+
+    if (isEnterable()) {
+        enter();
+        result =  m_ebook->hasFeature(code);
+        leave();
     }
+
+    return result;
+}
+
+bool MetaEBook::getTableOfContents(QList<EBookTocEntry>& toc) const
+{
+    bool result = false;
+
+    if (isEnterable()) {
+        enter();
+        result = m_ebook->getTableOfContents(toc);
+        leave();
+    }
+
+    return result;
+}
+
+bool MetaEBook::getIndex(QList<EBookIndexEntry>& index) const
+{
+    bool result = false;
+
+    if (isEnterable()) {
+        enter();
+        result = m_ebook->getIndex(index);
+        leave();
+    }
+
+    return result;
+}
+
+bool MetaEBook::getFileContentAsString(QString& str, const QUrl& url) const
+{
+    bool result = false;
+
+    if (isEnterable()) {
+        enter();
+        result = m_ebook->getFileContentAsString(str, url);
+        leave();
+    }
+
+    return result;
+}
+
+bool MetaEBook::getFileContentAsBinary(QByteArray& data, const QUrl& url) const
+{
+    bool result = false;
+
+    if (isEnterable()) {
+        enter();
+        result = m_ebook->getFileContentAsBinary(data, url);
+        leave();
+    }
+
+    return result;
 }
 
 bool MetaEBook::enumerateFiles(QList<QUrl>& files)
 {
-    if (isLoaded()) {
-        return m_ebook->enumerateFiles(files);
-    }  else {
-        return false;
+    bool result = false;
+
+    if (isEnterable()) {
+        enter();
+        result = m_ebook->enumerateFiles(files);
+        leave();
     }
+
+    return result;
 }
 
 QString MetaEBook::getTopicByUrl(const QUrl& url)
 {
-    if (isLoaded()) {
-        return m_ebook->getTopicByUrl(url);
-    }  else {
-        return QString();
+    QString result;
+
+    if (isEnterable()) {
+        enter();
+        result = m_ebook->getTopicByUrl(url);
+        leave();
     }
+
+    return result;
 }
 
 QString MetaEBook::currentEncoding() const
 {
-    if (isLoaded()) {
-        return m_ebook->currentEncoding();
-    }  else {
-        return QString();
+    QString result;
+
+    if (isEnterable()) {
+        enter();
+        result = m_ebook->currentEncoding();
+        leave();
     }
+
+    return result;
 }
 
 bool MetaEBook::setCurrentEncoding(const char* encoding)
 {
-    if (isLoaded()) {
-        return m_ebook->setCurrentEncoding(encoding);
-    }  else {
-        return false;
+    bool result = false;
+
+    if (isEnterable()) {
+        enter();
+        result = m_ebook->setCurrentEncoding(encoding);
+        leave();
     }
+
+    return result;
 }
 
 bool MetaEBook::isSupportedUrl(const QUrl& url)
 {
-    if (isLoaded()) {
-        return m_ebook->isSupportedUrl(url);
-    }  else {
-        return false;
+    bool result = false;
+
+    if (isEnterable()) {
+        enter();
+        result = m_ebook->isSupportedUrl(url);
+        leave();
     }
+
+    return result;
 }
 
 QUrl MetaEBook::pathToUrl(const QString& link) const
 {
-    if (isLoaded()) {
-        return m_ebook->pathToUrl(link);
-    }  else {
-        return QUrl();
+    QUrl result;
+
+    if (isEnterable()) {
+        enter();
+        result = m_ebook->pathToUrl(link);
+        leave();
     }
+
+    return result;
 }
 
 QString MetaEBook::urlToPath(const QUrl& url) const
 {
-    if (isLoaded()) {
-        return m_ebook->urlToPath(url);
-    }  else {
-        return QString();
+    QString result;
+
+    if (isEnterable()) {
+        enter();
+        result = m_ebook->urlToPath(url);
+        leave();
     }
+
+    return result;
 }

@@ -28,6 +28,7 @@ option(USE_STATIC_CHMLIB  "Use static link with chm library"                OFF)
 option(USE_DEPLOY_RUNTIME "Copying runtime dependencies for deployment"     OFF)
 option(USE_GETTEXT        "Use GNU Gettext for translation"                  ON)
 option(USE_MACOS_BUNDLE   "Install as macOS bundle"                          ON)
+option(USE_ASYNCEBOOK     "Use multythread AsyncEBook class"                OFF)
 
 # Init cmake
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
@@ -62,6 +63,10 @@ endif ()
 
 if (${USE_WEBENGINE})
     add_definitions(-DUSE_WEBENGINE)
+endif ()
+
+if (${USE_ASYNCEBOOK})
+    add_definitions(-USE_ASYNCEBOOK)
 endif ()
 
 include(cmake/qt-aliases.cmake)

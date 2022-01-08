@@ -19,6 +19,8 @@
 #ifndef DUMMY_ASYNC_EBOOK_H
 #define DUMMY_ASYNC_EBOOK_H
 
+#include <atomic>
+
 #include <QThread>
 
 #include "base_async_ebook.hpp"
@@ -92,10 +94,7 @@ public:
     QString urlToPath(const QUrl& url) const override;
 
 protected:
-    bool m_loaded = false;
     MetaEBook* m_metaEbook;
-
-    EBook* ebook() const;
 
     bool setEbook(EBook* ebook);
 };
@@ -119,14 +118,27 @@ public:
 
     inline bool isLoaded() const
     {
-        return m_ebook != nullptr;
+        return m_loaded.load();
     }
 
-    inline EBook* ebook() const
+    void lock();
+
+    void unlock();
+
+    inline bool isEnterable() const
     {
-        return m_ebook;
+        return m_enterable.load();
     }
 
+    void enter() const
+    {
+        m_enter++;
+    }
+
+    void leave() const
+    {
+        m_enter--;
+    }
 
 public slots:
     bool setEbook(EBook* ebook);
@@ -136,6 +148,14 @@ public slots:
     QUrl homeUrl() const;
 
     bool hasFeature(EBook::Feature code) const;
+
+    bool getTableOfContents(QList<EBookTocEntry>& toc) const;
+
+    bool getIndex(QList<EBookIndexEntry>& index) const;
+
+    bool getFileContentAsString(QString& str, const QUrl& url) const;
+
+    bool getFileContentAsBinary(QByteArray& data, const QUrl& url) const;
 
     bool enumerateFiles(QList<QUrl>& files);
 
@@ -153,6 +173,9 @@ public slots:
 
 protected:
     EBook* m_ebook;
+    std::atomic_bool m_loaded;
+    std::atomic_bool m_enterable;
+    mutable std::atomic_int m_enter;
 };
 
 #endif // DUMMY_ASYNC_EBOOK_H
