@@ -31,7 +31,8 @@ class TabIndex : public QWidget, public Ui::TabIndex
 	Q_OBJECT
 	public:
 		TabIndex( QWidget * parent = 0 );
-	
+        
+		void	refillIndex();
 		void	invalidate();
 		void	search( const QString& index );
 		void	focus();
@@ -44,8 +45,6 @@ class TabIndex : public QWidget, public Ui::TabIndex
 		
 	private:
 		void	showEvent ( QShowEvent * );
-		
-		void	refillIndex();
 		
 		QMenu 			* 	m_contextMenu;	
 		QTreeWidgetItem	*	m_lastSelectedItem;

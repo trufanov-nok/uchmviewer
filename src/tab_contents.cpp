@@ -54,11 +54,6 @@ TabContents::TabContents( QWidget *parent )
 	         SIGNAL( customContextMenuRequested ( const QPoint & ) ),
 	         this, 
 	         SLOT( onContextMenuRequested( const QPoint & ) ) );
-
-	if ( ::mainWindow->chmFile() )
-		refillTableOfContents();
-
-	focus();
 }
 
 TabContents::~TabContents()
@@ -68,7 +63,7 @@ TabContents::~TabContents()
 void TabContents::refillTableOfContents( )
 {
 	ShowWaitCursor wc;
-    
+
     mainWindow->chmFile()->getTableOfContents( [&]( bool success, QList< EBookTocEntry > data)
     {
         if ( !success || data.size() == 0 )
@@ -76,30 +71,30 @@ void TabContents::refillTableOfContents( )
             qWarning ("Table of contents is present but is empty; wrong parsing?");
             return;
         }
-    
+
         // Fill up the tree; we use a pretty complex routine to handle buggy CHMs
         QVector< TreeItem_TOC *> lastchild;
         QVector< TreeItem_TOC *> rootentry;
         bool warning_shown = false;
-    
+
         tree->clear();
-    
+
         for ( int i = 0; i < data.size(); i++ )
         {
             int indent = data[i].indent;
-    
+
             // Do we need to add another indent?
             if ( indent >= rootentry.size() )
             {
                 int maxindent = rootentry.size() - 1;
-    
+
                 // Resize the arrays
                 lastchild.resize( indent + 1 );
                 rootentry.resize( indent + 1 );
-    
+
                 if ( indent > 0 && maxindent < 0 )
                     qFatal("Invalid fisrt TOC indent (first entry has no root entry), aborting.");
-    
+
                 // And init the rest if needed
                 if ( (indent - maxindent) > 1 )
                 {
@@ -108,21 +103,21 @@ void TabContents::refillTableOfContents( )
                         qWarning("Invalid TOC step, applying workaround. Results may vary.");
                         warning_shown = true;
                     }
-    
+
                     for ( int j = maxindent; j < indent; j++ )
                     {
                         lastchild[j+1] = lastchild[j];
                         rootentry[j+1] = rootentry[j];
                     }
                 }
-    
+
                 lastchild[indent] = 0;
                 rootentry[indent] = 0;
             }
-    
+
             // Create the node
             TreeItem_TOC * item;
-    
+
             if ( indent == 0 )
                 item = new TreeItem_TOC( tree, lastchild[indent], data[i].name, data[i].url, data[i].iconid );
             else
@@ -134,16 +129,21 @@ void TabContents::refillTableOfContents( )
     
                 item = new TreeItem_TOC( rootentry[indent-1], lastchild[indent], data[i].name, data[i].url, data[i].iconid );
             }
-    
+
             if ( pConfig->m_tocOpenAllEntries )
                 item->setExpanded( true );
-    
+
             lastchild[indent] = item;
             rootentry[indent] = item;
         }
-    
+
         tree->update();
     });
+}
+
+void TabContents::invalidate()
+{
+    tree->clear();
 }
 
 

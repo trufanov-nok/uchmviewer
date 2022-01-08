@@ -65,8 +65,6 @@ TabIndex::TabIndex ( QWidget * parent )
 	m_indexListFilled = false;
 	m_lastSelectedItem = 0;
 	m_contextMenu = 0;
-
-	focus();
 }
 
 void TabIndex::onTextChanged ( const QString & newvalue)
@@ -86,10 +84,9 @@ void TabIndex::onTextChanged ( const QString & newvalue)
 
 void TabIndex::showEvent( QShowEvent * )
 {
-	if ( !::mainWindow->chmFile() || m_indexListFilled )
+	if ( !::mainWindow->chmFile()->isLoaded() || m_indexListFilled )
 		return;
 
-	m_indexListFilled = true;
 	refillIndex();
 }
 
@@ -149,7 +146,7 @@ void TabIndex::onItemActivated ( QTreeWidgetItem * item, int )
 void TabIndex::refillIndex( )
 {
 	ShowWaitCursor wc;
-	
+
     ::mainWindow->chmFile()->getIndex( [&](bool success, QList< EBookIndexEntry > data)
     {
         if ( !success || data.size() == 0 )
@@ -157,29 +154,31 @@ void TabIndex::refillIndex( )
             qWarning ("CHM index present but is empty; wrong parsing?");
             return;
         }
-        
+
+        m_indexListFilled = true;
+
         QVector< TreeItem_Index *> lastchild;
         QVector< TreeItem_Index *> rootentry;
         bool warning_shown = false;
-    
+ 
         tree->clear();
-    
+
         for ( int i = 0; i < data.size(); i++ )
         {
             int indent = data[i].indent;
-    
+
             // Do we need to add another indent?
             if ( indent >= rootentry.size() )
             {
                 int maxindent = rootentry.size() - 1;
-    
+
                 // Resize the arrays
                 lastchild.resize( indent + 1 );
                 rootentry.resize( indent + 1 );
-    
+
                 if ( indent > 0 && maxindent < 0 )
                     qFatal("Invalid fisrt TOC indent (first entry has no root entry), aborting.");
-    
+
                 // And init the rest if needed
                 if ( (indent - maxindent) > 1 )
                 {
@@ -188,18 +187,18 @@ void TabIndex::refillIndex( )
                         qWarning("Invalid TOC step, applying workaround. Results may vary.");
                         warning_shown = true;
                     }
-    
+
                     for ( int j = maxindent; j < indent; j++ )
                     {
                         lastchild[j+1] = lastchild[j];
                         rootentry[j+1] = rootentry[j];
                     }
                 }
-    
+
                 lastchild[indent] = 0;
                 rootentry[indent] = 0;
             }
-    
+
             // Create the node
             TreeItem_Index * item;
     
@@ -214,26 +213,25 @@ void TabIndex::refillIndex( )
     
                 item = new TreeItem_Index( rootentry[indent-1], lastchild[indent], data[i].name, data[i].urls, data[i].seealso );
             }
-    
+
             // Make it open
             item->setExpanded( true );
-    
+
             lastchild[indent] = item;
             rootentry[indent] = item;
         }
-    
+
         tree->update();
     });
 }
 
 void TabIndex::search( const QString & index )
 {
-	if ( !::mainWindow->chmFile() )
+	if ( !::mainWindow->chmFile()->isLoaded() )
 		return;
 
 	if ( !m_indexListFilled )
 	{
-		m_indexListFilled = true;
 		refillIndex();
 	}
 

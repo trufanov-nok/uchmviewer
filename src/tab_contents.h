@@ -37,6 +37,7 @@ class TabContents : public QWidget, public Ui::TabContents
 		~TabContents();
 		
 		void	refillTableOfContents();
+		void	invalidate();
 		void	showItem( TreeItem_TOC * item );
 		void	search( const QString& text );
 		void	focus();

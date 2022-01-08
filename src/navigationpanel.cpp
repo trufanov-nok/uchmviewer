@@ -42,9 +42,10 @@ NavigationPanel::NavigationPanel( QWidget * parent )
 	m_bookmarksTab = new TabBookmarks( m_tabWidget );
 	m_tabWidget->addTab( m_bookmarksTab, i18n("Bookmarks") );
 
-	// Those tabs will be added later
-	m_contentsTab = 0;
-	m_indexTab = 0;
+	m_contentsTab = new TabContents( nullptr );
+	m_showContentsTab = false;
+	m_indexTab = new TabIndex( nullptr );
+	m_showIndexTab = false;
 }
 
 void NavigationPanel::setBookmarkMenu( QMenu * menu )
@@ -54,19 +55,13 @@ void NavigationPanel::setBookmarkMenu( QMenu * menu )
 
 void NavigationPanel::invalidate()
 {
-	if ( m_contentsTab )
-	{
-		m_tabWidget->removeTab( m_tabWidget->indexOf( m_contentsTab ) );
-		delete m_contentsTab;
-		m_contentsTab = 0;
-	}
-
-	if ( m_indexTab )
-	{
-		m_tabWidget->removeTab( m_tabWidget->indexOf( m_indexTab ) );
-		delete m_indexTab;
-		m_indexTab = 0;
-	}
+	m_showContentsTab = false;
+	m_tabWidget->removeTab( m_tabWidget->indexOf( m_contentsTab ) );
+	m_contentsTab->invalidate();
+    
+	m_showIndexTab = false;
+	m_tabWidget->removeTab( m_tabWidget->indexOf( m_indexTab ) );
+	m_indexTab->invalidate();
 
 	m_searchTab->invalidate();
 	m_bookmarksTab->invalidate();
@@ -79,13 +74,13 @@ void NavigationPanel::updateTabs( EBook * file )
 	// Insert index first
 	if ( file->hasFeature( EBook::FEATURE_INDEX) )
 	{
-		m_indexTab = new TabIndex(m_tabWidget);
+		m_showIndexTab = true;
 		m_tabWidget->insertTab( 0, m_indexTab, i18n( "Index" ) );
 	}
 
 	if ( file->hasFeature( EBook::FEATURE_TOC) )
 	{
-		m_contentsTab = new TabContents( m_tabWidget );
+		m_showContentsTab = true;
 		m_tabWidget->insertTab( 0, m_contentsTab, i18n( "Contents" ) );
 	}
 }
@@ -104,13 +99,13 @@ void NavigationPanel::getSettings( Settings * settings )
 
 void NavigationPanel::refresh()
 {
-	if ( m_contentsTab )
-		m_contentsTab->refillTableOfContents();
+	m_contentsTab->refillTableOfContents();
+	m_indexTab->refillIndex();
 }
 
 bool NavigationPanel::findUrlInContents( const QUrl& url )
 {
-	if ( !m_contentsTab )
+	if ( !m_showContentsTab )
 		return false;
 
 	TreeItem_TOC * treeitem = m_contentsTab->getTreeItem( url );
@@ -135,7 +130,7 @@ void NavigationPanel::addBookmark()
 
 void NavigationPanel::showPrevInToc()
 {
-	if ( !m_contentsTab )
+	if ( !m_showContentsTab )
 		return;
 
 	// Try to find current list item
@@ -153,7 +148,7 @@ void NavigationPanel::showPrevInToc()
 
 void NavigationPanel::showNextInToc()
 {
-	if ( !m_contentsTab )
+	if ( !m_showContentsTab )
 		return;
 
 	// Try to find current list item
@@ -189,7 +184,7 @@ void NavigationPanel::setActive( int index )
 	switch ( index )
 	{
 		case TAB_CONTENTS:
-			if ( m_contentsTab )
+			if ( m_showContentsTab )
 			{
 				m_tabWidget->setCurrentWidget( m_contentsTab );
 				m_contentsTab->focus();
@@ -197,7 +192,7 @@ void NavigationPanel::setActive( int index )
 			break;
 
 		case TAB_INDEX:
-			if ( m_indexTab )
+			if ( m_showIndexTab )
 			{
 				m_tabWidget->setCurrentWidget( m_indexTab );
 				m_indexTab->focus();
@@ -219,13 +214,13 @@ void NavigationPanel::setActive( int index )
 
 void NavigationPanel::findTextInContents( const QString & text )
 {
-	if ( m_contentsTab )
+	if ( m_showContentsTab )
 		m_contentsTab->search( text );
 }
 
 void NavigationPanel::findInIndex( const QString& text )
 {
-	if ( m_indexTab )
+	if ( m_showIndexTab )
 		m_indexTab->search( text );
 }
 

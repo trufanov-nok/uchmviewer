@@ -92,7 +92,9 @@ class NavigationPanel : public QDockWidget, public Ui::NavigatorPanel
 		void	showNextInToc();
 
 	private:
+		bool					m_showContentsTab;
 		TabContents			*	m_contentsTab;
+		bool					m_showIndexTab;
 		TabIndex			*	m_indexTab;
 		TabSearch			*	m_searchTab;
 		TabBookmarks		*	m_bookmarksTab;

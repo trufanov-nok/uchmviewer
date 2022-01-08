@@ -46,7 +46,14 @@
 #include "version.h"
 #include "textencodings.h"
 #include "ui_dialog_about.h"
-#include "dummy_async_ebook.hpp"
+
+#ifdef USE_ASYNCEBOOK
+    #include "async_ebook.hpp"
+typedef AsyncEBook AsyncEBookImpl;
+#else
+    #include "dummy_async_ebook.hpp"
+typedef DummyAsyncEBook AsyncEBookImpl;
+#endif
 
 #ifdef Q_WS_X11
     #include <QX11Info>
@@ -79,7 +86,7 @@ MainWindow::MainWindow( const QStringList& arguments )
 	else
 		qApp->setLayoutDirection( Qt::LeftToRight );
 	
-	m_ebookFile = new DummyAsyncEBook();
+	m_ebookFile = new AsyncEBookImpl();
 	m_autoteststate = STATE_OFF;
     m_sharedMemory = 0;
 
@@ -277,7 +284,11 @@ bool MainWindow::loadFile ( const QString &loadFileName, bool call_open_page )
 		navSetForwardEnabled( false );
 
 		m_viewWindowMgr->invalidate();
-		refreshCurrentBrowser();
+
+        // If the e-book supports encodings, below will be a call to setTextEncoding,
+        // which in turn will call refreshCurrentBrowser.
+        if ( !m_ebookFile->hasFeature( EBook::FEATURE_ENCODING ) )
+            refreshCurrentBrowser();
 
 		if ( m_currentSettings->loadSettings (fileName) )
 		{
