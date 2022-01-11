@@ -66,7 +66,7 @@ if (${USE_WEBENGINE})
 endif ()
 
 if (${USE_ASYNCEBOOK})
-    add_definitions(-USE_ASYNCEBOOK)
+    add_definitions(-DUSE_ASYNCEBOOK)
 endif ()
 
 include(cmake/qt-aliases.cmake)
