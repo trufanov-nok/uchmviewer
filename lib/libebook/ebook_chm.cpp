@@ -44,7 +44,7 @@ EBook_CHM::EBook_CHM()
 {
 	m_envOptions = getenv("UCHMVIEWEROPTS");
 	m_chmFile = NULL;
-	m_filename = m_font = QString::null;
+	m_filename = m_font = QString();
 
 	m_textCodec = 0;
 	m_textCodecForSpecialFiles = 0;
@@ -67,7 +67,7 @@ void EBook_CHM::close()
 	chm_close( m_chmFile );
 
 	m_chmFile = NULL;
-	m_filename = m_font = QString::null;
+	m_filename = m_font = QString();
 
 	m_home.clear();
 	m_topicsFile.clear();
@@ -334,7 +334,7 @@ int EBook_CHM::findStringInQuotes (const QString& tag, int offset, QString& valu
 	// If we do not need to decode HTML entities, just return.
 	if ( decodeentities )
 	{
-		QString htmlentity = QString::null;
+		QString htmlentity = QString();
 		bool fill_entity = false;
 
 		value.reserve (qend - qbegin); // to avoid multiple memory allocations
@@ -359,7 +359,7 @@ int EBook_CHM::findStringInQuotes (const QString& tag, int offset, QString& valu
 						break;
 
 					value.append ( decode );
-					htmlentity = QString::null;
+					htmlentity = QString();
 					fill_entity = false;
 				}
 				else
@@ -472,7 +472,7 @@ bool EBook_CHM::parseFileAndFillArray( const QString& file, QList< ParsedEntry >
 				data.push_back( entry );
 			}
 
-			entry.name = QString::null;
+			entry.name = QString();
 			entry.urls.clear();
 			entry.iconid = defaultimagenum;
 			entry.seealso.clear();
@@ -604,7 +604,7 @@ bool EBook_CHM::getInfoFromWindows()
 	unsigned char buffer[BUF_SIZE];
 	unsigned int factor;
 	chmUnitInfo ui;
-	long size = 0;
+	size_t size = 0;
 
 	if ( ResolveObject("/#WINDOWS", &ui) )
 	{
@@ -678,10 +678,10 @@ bool EBook_CHM::getInfoFromSystem()
 	unsigned char buffer[BUF_SIZE];
 	chmUnitInfo ui;
 
-	int index = 0;
+	size_t index = 0;
 	unsigned char* cursor = NULL, *p;
 	unsigned short value = 0;
-	long size = 0;
+	size_t size = 0;
 
 	// Run the first loop to detect the encoding. We need this, because title could be
 	// already encoded in user encoding. Same for file names
@@ -695,7 +695,7 @@ bool EBook_CHM::getInfoFromSystem()
 	buffer[size - 1] = 0;
 
 	// First loop to detect the encoding
-	for ( index = 0; index < (size - 1 - (long)sizeof(unsigned short)) ;)
+	for ( index = 0; index + 1 + sizeof(unsigned short) < size;)
 	{
 		cursor = buffer + index;
 		value = UINT16ARRAY(cursor);
@@ -787,7 +787,7 @@ QString EBook_CHM::getTopicByUrl( const QUrl& url )
 	QMap< QUrl, QString >::const_iterator it = m_url2topics.find( url );
 
 	if ( it == m_url2topics.end() )
-		return QString::null;
+		return QString();
 
 	return it.value();
 }

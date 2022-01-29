@@ -19,7 +19,6 @@
 #include <QContextMenuEvent>
 #include <QPrinter>
 #include <QPrintDialog>
-#include <QRegExp>
 #include <QString>
 #include <QWebEngineContextMenuData>
 #include <QWebEngineHistory>
@@ -38,7 +37,9 @@
 #include "webenginepage.h"
 
 
-#define PRINT_DEBUG (defined PRINT_DEBUG_ALL || defined PRINT_DEBUG_WEBENGINE || defined PRINT_DEBUG_WEBENGINEVIEWWINDOW)
+#if defined PRINT_DEBUG_ALL || defined PRINT_DEBUG_WEBENGINE || defined PRINT_DEBUG_WEBENGINEVIEWWINDOW
+    #define PRINT_DEBUG 1
+#endif
 
 static const qreal ZOOM_FACTOR_CHANGE = 0.1;
 
@@ -69,7 +70,7 @@ ViewWindow::~ViewWindow()
 
 void ViewWindow::invalidate( )
 {
-    m_newTabLinkKeeper = QString::null;
+    m_newTabLinkKeeper = QString();
     m_storedScrollbarPosition = 0;
     reload();
 }
@@ -164,6 +165,7 @@ bool ViewWindow::printCurrentPage()
     }
 
     page()->print( printer, [printer](bool result){
+        Q_UNUSED(result);
         ::mainWindow->showInStatusBar( i18n( "Printing finished") );
         delete printer;
     });
