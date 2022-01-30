@@ -979,6 +979,11 @@ void MainWindow::actionFontSizeDecrease()
 
 void MainWindow::actionViewHTMLsource()
 {
+	if ( !m_ebookFile )
+	{
+		return;
+	}
+
 	QUrl page = currentBrowser()->getOpenedPage();
 
 	if ( pConfig->m_advUseInternalEditor )
