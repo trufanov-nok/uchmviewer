@@ -16,12 +16,16 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <QTextStream>
-#include <QFile>
+#include <QCoreApplication>
 #include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QSettings>
+#include <QString>
+#include <QtGlobal>			// qPrintable, qWarning
 
 #include "config.h"
-#include "settings.h"
+#include "settings.h"	// QSettings
 #include "mainwindow.h"
 
 Config * pConfig;
@@ -37,7 +41,7 @@ Config::Config()
 		m_datapath += QDir::separator() + QString("data");
 	}
 	else
-		m_datapath = QDir::homePath () + "/" + ".kchmviewer";
+		m_datapath = QDir::homePath () + "/" + ".uchmviewer";
 
 	QSettings settings;
 
@@ -50,7 +54,6 @@ Config::Config()
 	m_advLayoutDirectionRL = settings.value( "advanced/layoutltr", false ).toBool();
 	m_advAutodetectEncoding = settings.value( "advanced/autodetectenc", false ).toBool();
 	m_advExternalEditorPath = settings.value( "advanced/editorpath", "/usr/bin/kate" ).toString();
-	m_advCheckNewVersion = settings.value( "advanced/checknewver", true ).toBool();
 	m_toolbarMode = (Config::ToolbarMode) settings.value( "advanced/toolbarmode", TOOLBAR_LARGEICONSTEXT ).toInt();
 	m_lastOpenedDir = settings.value( "advanced/lastopendir", "." ).toString();
 
@@ -87,7 +90,6 @@ void Config::save( )
 	settings.setValue( "advanced/layoutltr", m_advLayoutDirectionRL );
 	settings.setValue( "advanced/autodetectenc", m_advAutodetectEncoding );
 	settings.setValue( "advanced/editorpath", m_advExternalEditorPath );
-	settings.setValue( "advanced/checknewver", m_advCheckNewVersion );
 	settings.setValue( "advanced/toolbarmode", m_toolbarMode );
 	settings.setValue( "advanced/lastopendir", m_lastOpenedDir );
 
@@ -109,7 +111,7 @@ QString Config::getEbookSettingFile(const QString &ebookfile ) const
 	QFileInfo finfo ( ebookfile );
 	QString prefix = pConfig->m_datapath + QDir::separator() + finfo.completeBaseName();
 
-	return prefix + ".kchmviewer";
+	return prefix + ".uchmviewer";
 }
 
 QString Config::getEbookIndexFile(const QString &ebookfile) const

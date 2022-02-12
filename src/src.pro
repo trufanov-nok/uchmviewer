@@ -1,6 +1,6 @@
 
 TEMPLATE = app
-TARGET = ../bin/kchmviewer
+TARGET = ../bin/uchmviewer
 CONFIG *= c++11 warn_on threads
 
 QT += \
@@ -25,7 +25,6 @@ HEADERS += \
     viewwindow.h \
     viewwindowmgr.h \
     navigationpanel.h \
-    checknewversion.h \
     toolbarmanager.h \
     toolbareditor.h \
     textencodings.h \
@@ -39,7 +38,6 @@ SOURCES += \
     config.cpp \
     dialog_chooseurlfromlist.cpp \
     dialog_setup.cpp \
-    kde-qt.cpp \
     main.cpp \
     mainwindow.cpp \
     recentfiles.cpp \
@@ -49,7 +47,6 @@ SOURCES += \
     tab_index.cpp \
     tab_search.cpp \
     navigationpanel.cpp \
-    checknewversion.cpp \
     toolbarmanager.cpp \
     toolbareditor.cpp \
     textencodings.cpp \
@@ -87,10 +84,6 @@ LIBS *= -L"../lib/libebook"
 
 LIBS *= -lebook -lchm -lzip
 
-linux-g++*:{
-    LIBS *= -lX11
-}
-
 # This is used by cross-build on 64-bit when building a 32-bit version
 linux-g++-32: {
        LIBS *= -L.
@@ -98,8 +91,9 @@ linux-g++-32: {
 
 # General per-platform settings
 macx:{
-    HEADERS += kchmviewerapp.h
-    SOURCES += kchmviewerapp.cpp
+    HEADERS += uchmviewerapp.h
+    SOURCES += uchmviewerapp.cpp
+    DEFINES += USE_MAC_APP
 }
 
 win32:{
@@ -109,7 +103,7 @@ win32:{
             LIBS *= -L"../lib/libebook/release" -L"../lib/release"
     }
 
-    LIBS += -lwsock32 -loleaut32
+    LIBS += -loleaut32
 }
 
 unix:!macx: {
@@ -117,12 +111,13 @@ unix:!macx: {
     HEADERS += dbus_interface.h
     SOURCES += dbus_interface.cpp
     CONFIG += dbus
+    DEFINES += USE_DBUS
 }
 
 !isEmpty(USE_WEBENGINE) {
     isEqual(QT_MAJOR_VERSION, 5):lessThan(QT_MINOR_VERSION, 9):error("QtWebEnginew requires at least Qt5.9")
 
-    QT += webengine webenginewidgets
+    QT += webenginewidgets
     DEFINES += USE_WEBENGINE
     SOURCES += qtwebengine/viewwindow.cpp qtwebengine/dataprovider.cpp qtwebengine/viewwindowmgr.cpp
     HEADERS += qtwebengine/dataprovider.h qtwebengine/viewwindow.h qtwebengine/webenginepage.h
@@ -132,3 +127,5 @@ unix:!macx: {
     SOURCES += qtwebkit/viewwindow.cpp qtwebkit/dataprovider.cpp qtwebkit/viewwindowmgr.cpp
     HEADERS += qtwebkit/dataprovider.h qtwebkit/viewwindow.h
 }
+
+greaterThan(QT_MAJOR_VERSION, 5): QT += core5compat

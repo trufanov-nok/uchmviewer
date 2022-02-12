@@ -16,26 +16,26 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "kde-qt.h"
-#include "i18n.h"
+#include <QtGlobal>		// qPrintable, qWarning
+#include <QStringList>
 
-#include "mainwindow.h"
-#include "config.h"
-#include "dbus_interface.h"
-#include "version.h"
+#include "kde-qt.h"		// KApplication or QApplication
 
-#if !defined (WIN32)
-	#include <QtDBus/QtDBus>
+#include "i18n.h"		// app_i18n::init, ki18n
+
+#include "config.h"		// Config, pConfig
+#include "mainwindow.h"	// MainWindow ::mainWindow
+#include "version.h"	// APP_VERSION_MAJOR, APP_VERSION_MINOR
+
+#if defined USE_DBUS
+	#include <QDBusConnection>
+    #include "dbus_interface.h"	// SERVICE_NAME
 #endif
 
-#if defined (USE_KDE)
-	#include <kaboutdata.h>
-#endif
-
-#if defined (Q_OS_MAC)
-        #include "kchmviewerapp.h"
+#if defined USE_MAC_APP
+    #include "uchmviewerapp.h"
 #else
-        typedef QApplication  KchmviewerApp;
+        typedef QApplication  UchmviewerApp;
 #endif
 
 MainWindow * mainWindow;
@@ -44,36 +44,36 @@ MainWindow * mainWindow;
 int main( int argc, char ** argv )
 {
 #if defined (USE_KDE)
-    KAboutData aboutdata ( "kchmviewer",
+    K4AboutData aboutdata ( "uChmViewer",
                            QByteArray(),
-                           ki18n("kchmviewer"),
+                           ki18n("uChmViewer"),
                            qPrintable( QString("%1.%2") .arg(APP_VERSION_MAJOR) .arg(APP_VERSION_MINOR) ),
                            ki18n("CHM file viewer"),
-                           KAboutData::License_GPL,
-                           ki18n("(c) 2004-2015 George Yunaev, gyunaev@ulduzsoft.com"),
-                           ki18n("Please report bugs to kchmviewer@ulduzsoft.com"),
-                           "http://www.ulduzsoft.com/kchmviewer",
-                           "kchmviewer@ulduzsoft.com");
+                           K4AboutData::License_GPL,
+                           ki18n("(c) 2004-2015 George Yunaev"),
+                           ki18n("Please report bugs to nicegorov@ya.com"),
+                           "https://github.com/u-235/uchmviewer",
+                           "");
 
     KCmdLineArgs::init( &aboutdata );
     KApplication app;
 #else
-	KchmviewerApp app( argc, argv );
+	UchmviewerApp app( argc, argv );
 
 	app.addLibraryPath ( "qt-plugins" );
 #endif
 
-app_i18n::init();	
+	app_i18n::init();	
 
 	// Set data for QSettings
-	QCoreApplication::setOrganizationName("Ulduzsoft");
-	QCoreApplication::setOrganizationDomain("kchmviewer.net");
-	QCoreApplication::setApplicationName("kchmviewer");
+	QCoreApplication::setOrganizationName("uChmViewer");
+	QCoreApplication::setOrganizationDomain("uChmViewer.net");
+	QCoreApplication::setApplicationName("uchmviewer");
 
 	// Configuration
 	pConfig = new Config();
 
-#if !defined (WIN32) && !defined(Q_OS_MAC)
+#if defined USE_DBUS
 	if ( QDBusConnection::sessionBus().isConnected() )
 	{
 		if ( QDBusConnection::sessionBus().registerService(SERVICE_NAME) )
@@ -104,7 +104,9 @@ app_i18n::init();
 
     // If we already have the duplicate instance, the data has been already sent to it - quit now
     if ( mainWindow->hasSameTokenInstance() )
+    {
         return 0;
+    }
 
 	mainWindow->show();
     mainWindow->launch();

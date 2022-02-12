@@ -17,14 +17,17 @@
  */
 
 #include <QCoreApplication>
+#include <QLatin1String>
 #include <QLibraryInfo>
 #include <QLocale>
+#include <QRegularExpression>
+#include <QString>
 #include <QTranslator>
 
 #include "i18n.h"
 
 
-#if !defined USE_KDE && defined USE_GETTEXT
+#if defined USE_GETTEXT
 #include <libintl.h>
 
 namespace app_i18n
@@ -35,7 +38,7 @@ void initGettext();
 #if !defined APP_INSTALL_DIR_BIN || !defined APP_INSTALL_DIR_LOCALE
 void app_i18n::initGettext()
 {
-	textdomain ( "kchmviewer" );
+	textdomain ( "uchmviewer" );
 }
 #else
 void app_i18n::initGettext()
@@ -44,8 +47,8 @@ void app_i18n::initGettext()
 	QString localeDir = QLatin1String( APP_INSTALL_DIR_LOCALE );
 	QString appDir = QCoreApplication::applicationDirPath();
 	// Clearing leading and trailing slashes, just in case.
-	QRegExp leadingSlash = QRegExp( "^[/\\\\]*" );
-	QRegExp trailingSlash = QRegExp( "[/\\\\]*$" );
+	QRegularExpression leadingSlash = QRegularExpression( "^[/\\\\]*" );
+	QRegularExpression trailingSlash = QRegularExpression( "[/\\\\]*$" );
 	binDir.remove( leadingSlash );
 	binDir.remove( trailingSlash );
 	localeDir.remove( leadingSlash );
@@ -55,12 +58,12 @@ void app_i18n::initGettext()
 	if (appDir.endsWith( binDir ))
 	{
 		// Getting the installation root folder and adding the translations path.
-		appDir.remove( QRegExp(binDir + "$") );
+		appDir.remove( QRegularExpression(binDir + "$") );
 		appDir.append( localeDir );
-		bindtextdomain ( "kchmviewer", appDir.toUtf8().data() );
+		bindtextdomain ( "uchmviewer", appDir.toUtf8().data() );
 	}
 
-	textdomain ( "kchmviewer" );
+	textdomain ( "uchmviewer" );
 }
 #endif //!defined APP_INSTALL_DIR_BIN || !defined APP_INSTALL_DIR_LOCALE
 
@@ -83,22 +86,12 @@ class Translator: public QTranslator
 
 			return QString();
 		}
-
-		// Special for qt4. See https://doc.qt.io/archives/qt-4.8/qtranslator.html#translate
-		virtual QString translate( const char* context, const char* sourceText, const char* disambiguation ) const
-		{
-			return translate( context, sourceText, disambiguation, -1 );
-		}
 };
-#endif // !defined USE_KDE && defined USE_GETTEXT
+#endif // defined USE_GETTEXT
 
 void app_i18n::init()
 {
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 0, 0))
 	QString qt_file_name = QLatin1String( "qtbase" );
-#else
-	QString qt_file_name = QLatin1String( "qt" );
-#endif
 	static QTranslator qt_i18n;
 	bool loaded = qt_i18n.load( QLocale(), qt_file_name, "_",
 	                            QLibraryInfo::location( QLibraryInfo::TranslationsPath ) );
@@ -113,7 +106,7 @@ void app_i18n::init()
 	if ( loaded )
 		QCoreApplication::installTranslator( &we_i18n );
 
-#if !defined USE_KDE && defined USE_GETTEXT
+#if defined USE_GETTEXT
 	static Translator app_i18n;
 	initGettext();
 	QCoreApplication::installTranslator( &app_i18n );

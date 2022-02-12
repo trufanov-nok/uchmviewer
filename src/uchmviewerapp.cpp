@@ -18,22 +18,24 @@
 
 #include <QApplication>
 #include <QEvent>
+#include <QFileOpenEvent>
 #include <QTimer>
+#include <QtGlobal>        // qWarning
 
-#include "kchmviewerapp.h"
-#include "mainwindow.h"
+#include "mainwindow.h"    // MainWindow
+#include "uchmviewerapp.h"
 
 
-KchmviewerApp::KchmviewerApp(int &argc, char **argv, int version)
+UchmviewerApp::UchmviewerApp(int &argc, char **argv, int version)
     : QApplication(argc, argv, version)
 {
 }
 
-KchmviewerApp::~KchmviewerApp()
+UchmviewerApp::~UchmviewerApp()
 {
 }
 
-bool KchmviewerApp::event(QEvent* ev)
+bool UchmviewerApp::event(QEvent* ev)
 {
     if (ev->type() == QEvent::FileOpen)
       {
@@ -46,7 +48,7 @@ bool KchmviewerApp::event(QEvent* ev)
     return QApplication::event(ev);
 }
 
-void KchmviewerApp::onTimer()
+void UchmviewerApp::onTimer()
 {
     MainWindow *main;
 

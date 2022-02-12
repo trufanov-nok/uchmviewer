@@ -16,29 +16,42 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <QApplication>
 #include <QContextMenuEvent>
+#include <QDialog>							// QDialog::Accepted
+#include <QKeySequence>
+#include <QMenu>
+#include <QPalette>
 #include <QPrinter>
 #include <QPrintDialog>
-#include <QRegExp>
 #include <QString>
-#include <QWebEngineContextMenuData>
+#include <QtGlobal>							// QT_VERSION, QT_VERSION_CHECK
+#include <QUrl>
+#include <QVariant>
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 2, 0))
+    #include <QWebEngineContextMenuRequest>
+#else
+    #include <QWebEngineContextMenuData>
+#endif
 #include <QWebEngineHistory>
 #include <QWebEnginePage>
 #include <QWebEngineProfile>
 #include <QWebEngineSettings>
 #include <QWebEngineScript>
-#include <QWebEngineView>
+#include <QWidget>
 
 #include "../i18n.h"
 
-#include "../config.h"
-#include "../viewwindow.h"
-#include "../mainwindow.h"
-#include "../viewwindowmgr.h"
-#include "webenginepage.h"
+#include "../config.h"        // pConfig
+#include "../mainwindow.h"    // ::mainWindow
+#include "../viewwindow.h"    // ViewWindow, QWebEngineView
+#include "../viewwindowmgr.h" // ViewWindowMgr
+#include "webenginepage.h"    // WebEnginePage
 
 
-#define PRINT_DEBUG (defined PRINT_DEBUG_ALL || defined PRINT_DEBUG_WEBENGINE || defined PRINT_DEBUG_WEBENGINEVIEWWINDOW)
+#if defined PRINT_DEBUG_ALL || defined PRINT_DEBUG_WEBENGINE || defined PRINT_DEBUG_WEBENGINEVIEWWINDOW
+    #define PRINT_DEBUG 1
+#endif
 
 static const qreal ZOOM_FACTOR_CHANGE = 0.1;
 
@@ -69,7 +82,7 @@ ViewWindow::~ViewWindow()
 
 void ViewWindow::invalidate( )
 {
-    m_newTabLinkKeeper = QString::null;
+    m_newTabLinkKeeper = QString();
     m_storedScrollbarPosition = 0;
     reload();
 }
@@ -113,8 +126,8 @@ QMenu * ViewWindow::getContextMenu( const QUrl & link, QWidget * parent )
         {
             m_contextMenuLink = createStandardContextMenu( parent );
             m_contextMenuLink->addSeparator();
-            m_contextMenuLink->addAction( "&Open this link in a new tab", ::mainWindow, SLOT(onOpenPageInNewTab()), QKeySequence("Shift+Enter") );
-            m_contextMenuLink->addAction( "&Open this link in a new background tab", ::mainWindow, SLOT(onOpenPageInNewBackgroundTab()), QKeySequence("Ctrl+Enter") );
+            m_contextMenuLink->addAction( i18n("&Open this link in a new tab"), ::mainWindow, SLOT(onOpenPageInNewTab()), QKeySequence("Shift+Enter") );
+            m_contextMenuLink->addAction( i18n("&Open this link in a new background tab"), ::mainWindow, SLOT(onOpenPageInNewBackgroundTab()), QKeySequence("Ctrl+Enter") );
         }
 
         setTabKeeper( link );
@@ -163,10 +176,16 @@ bool ViewWindow::printCurrentPage()
         return false;
     }
 
+#if QT_VERSION < QT_VERSION_CHECK(6, 2, 0)
     page()->print( printer, [printer](bool result){
+        Q_UNUSED(result);
         ::mainWindow->showInStatusBar( i18n( "Printing finished") );
         delete printer;
     });
+#else
+    // TODO make slot onPrintFinished()
+    print( printer );
+#endif
 
     return true;
 }
@@ -238,7 +257,12 @@ void ViewWindow::updateHistoryIcons()
 void ViewWindow::contextMenuEvent(QContextMenuEvent *e)
 {
     QMenu *m = new QMenu(0);
+
+#if QT_VERSION >= QT_VERSION_CHECK(6, 2, 0)
+    QUrl link = lastContextMenuRequest()->linkUrl();
+#else
     QUrl link = page()->contextMenuData().linkUrl();
+#endif
 
     if ( !link.isEmpty() )
     {
@@ -274,10 +298,13 @@ void ViewWindow::onLinkClicked(const QUrl &url)
 
 void ViewWindow::applySettings()
 {
+    // TODO make apply settings in Qt6 again
+#if QT_VERSION < QT_VERSION_CHECK(6, 2, 0)
     QWebEngineSettings * setup = QWebEngineSettings::globalSettings();
 
     setup->setAttribute( QWebEngineSettings::AutoLoadImages, pConfig->m_browserEnableImages );
     setup->setAttribute( QWebEngineSettings::JavascriptEnabled, pConfig->m_browserEnableJS );
     setup->setAttribute( QWebEngineSettings::PluginsEnabled, pConfig->m_browserEnablePlugins );
     setup->setAttribute( QWebEngineSettings::LocalStorageEnabled, pConfig->m_browserEnableLocalStorage );
+#endif
 }

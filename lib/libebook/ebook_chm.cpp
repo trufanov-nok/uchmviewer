@@ -16,15 +16,26 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <cstddef>	// size_t
+#include <cstdio>	// fprintf
+
+#include <QByteArray>
 #include <QFile>
+#include <QList>
+#include <QString>
+#include <Qt>			// CaseInsensitive
+#include <QtGlobal>		// qPrintable, qDebug, qFatal, qWarning
+#include <QTextCodec>
 #include <QVector>
-#include <QDebug>
+#include <QUrl>
 
-#include "ebook_chm.h"
-#include "ebook_chm_encoding.h"
-#include "helper_entitydecoder.h"
+#include "bitfiddle.h"				// UINT16ARRAY, UINT32ARRAY, get_int32_le
+#include "ebook_chm.h"				// ebook.h -> EBook, EBookIndexEntry, EBookTocEntry
+									// chm_lib.h -> chmUnitInfo, LONGUINT64
+									// EBook_CHM, ParsedEntry
+#include "ebook_chm_encoding.h"		// Ebook_CHM_Encoding
+#include "helper_entitydecoder.h"	// HelperEntityDecoder
 
-#include "bitfiddle.h"
 
 // Big-enough buffer size for use with various routines.
 #define BUF_SIZE 4096
@@ -42,15 +53,16 @@ const char * EBook_CHM::URL_SCHEME_CHM = "ms-its";
 EBook_CHM::EBook_CHM()
     : EBook()
 {
-	m_envOptions = getenv("KCHMVIEWEROPTS");
+	m_envOptions = getenv("UCHMVIEWEROPTS");
 	m_chmFile = NULL;
-	m_filename = m_font = QString::null;
+	m_filename = m_font = QString();
 
 	m_textCodec = 0;
 	m_textCodecForSpecialFiles = 0;
 	m_detectedLCID = 0;
 	m_currentEncoding = "UTF-8";
 	m_htmlEntityDecoder = 0;
+	m_lookupTablesValid = false;
 }
 
 EBook_CHM::~EBook_CHM()
@@ -66,7 +78,7 @@ void EBook_CHM::close()
 	chm_close( m_chmFile );
 
 	m_chmFile = NULL;
-	m_filename = m_font = QString::null;
+	m_filename = m_font = QString();
 
 	m_home.clear();
 	m_topicsFile.clear();
@@ -76,6 +88,7 @@ void EBook_CHM::close()
 	m_textCodecForSpecialFiles = 0;
 	m_detectedLCID = 0;
 	m_currentEncoding = "UTF-8";
+	m_lookupTablesValid = false;
 }
 
 QString EBook_CHM::title() const
@@ -295,8 +308,6 @@ bool EBook_CHM::load(const QString &archiveName)
 		m_lookupTablesValid = true;
 		fillTopicsUrlMap();
 	}
-	else
-		m_lookupTablesValid = false;
 
 	// Some CHM files have toc and index files, but do not set the name properly.
 	// Some heuristics here.
@@ -334,7 +345,7 @@ int EBook_CHM::findStringInQuotes (const QString& tag, int offset, QString& valu
 	// If we do not need to decode HTML entities, just return.
 	if ( decodeentities )
 	{
-		QString htmlentity = QString::null;
+		QString htmlentity = QString();
 		bool fill_entity = false;
 
 		value.reserve (qend - qbegin); // to avoid multiple memory allocations
@@ -359,7 +370,7 @@ int EBook_CHM::findStringInQuotes (const QString& tag, int offset, QString& valu
 						break;
 
 					value.append ( decode );
-					htmlentity = QString::null;
+					htmlentity = QString();
 					fill_entity = false;
 				}
 				else
@@ -472,7 +483,7 @@ bool EBook_CHM::parseFileAndFillArray( const QString& file, QList< ParsedEntry >
 				data.push_back( entry );
 			}
 
-			entry.name = QString::null;
+			entry.name = QString();
 			entry.urls.clear();
 			entry.iconid = defaultimagenum;
 			entry.seealso.clear();
@@ -604,7 +615,7 @@ bool EBook_CHM::getInfoFromWindows()
 	unsigned char buffer[BUF_SIZE];
 	unsigned int factor;
 	chmUnitInfo ui;
-	long size = 0;
+	size_t size = 0;
 
 	if ( ResolveObject("/#WINDOWS", &ui) )
 	{
@@ -678,10 +689,10 @@ bool EBook_CHM::getInfoFromSystem()
 	unsigned char buffer[BUF_SIZE];
 	chmUnitInfo ui;
 
-	int index = 0;
+	size_t index = 0;
 	unsigned char* cursor = NULL, *p;
 	unsigned short value = 0;
-	long size = 0;
+	size_t size = 0;
 
 	// Run the first loop to detect the encoding. We need this, because title could be
 	// already encoded in user encoding. Same for file names
@@ -695,7 +706,7 @@ bool EBook_CHM::getInfoFromSystem()
 	buffer[size - 1] = 0;
 
 	// First loop to detect the encoding
-	for ( index = 0; index < (size - 1 - (long)sizeof(unsigned short)) ;)
+	for ( index = 0; index + 1 + sizeof(unsigned short) < size;)
 	{
 		cursor = buffer + index;
 		value = UINT16ARRAY(cursor);
@@ -787,7 +798,7 @@ QString EBook_CHM::getTopicByUrl( const QUrl& url )
 	QMap< QUrl, QString >::const_iterator it = m_url2topics.find( url );
 
 	if ( it == m_url2topics.end() )
-		return QString::null;
+		return QString();
 
 	return it.value();
 }

@@ -1,69 +1,93 @@
-# kchmviewer build script with cmake
+# uChmViewer build script with cmake
 #
 #       Common option:
-# FRAMEWORK=<Qt4 | Qt5 | KDE4>
-# USE_STATIC_CHMLIB=ON - if defined, static linkage to the chm library is used
-# USE_WEBENGINE=ON - if defined, WebEngine is used, otherwise WebKit is used
-# USE_GETTEXT=ON - if defined, then GNU Gettext will be used for translation.
-#     The default is ON.
+# USE_KF5            - if defined, build with KDE Framework 5.
+# USE_STATIC_CHMLIB  - if defined, static linkage to the chm library is used.
+# USE_WEBENGINE      - if defined, WebEngine is used, otherwise WebKit is used.
+# USE_GETTEXT        - if defined, then GNU Gettext will be used for translation.
+#                      The default is ON.
+# USE_DBUS           - if defined, build with D-Bus integration.
+#                      The default is ON for Linux.
+# USE_MAC_APP        - if defined, build with  derived QApplication.
+#                      The default is ON for macOs.
 #
 #       System-specific option:
-#
-# USE_DEPLOY_RUNTIME=ON - if defined, the runtime dependencies will be copied to
-#     the folder with the executable. This option is applicable for Windows and
-#     macOS.
-# USE_MACOS_BUNDLE=ON - if defined, configure installation for macOS as a bundle.
-#     The default is ON.
+# USE_DEPLOY_RUNTIME - if defined, the runtime dependencies will be copied to the
+#                      folder with the executable. This option is applicable for
+#                      Windows and macOS.
+# USE_MACOS_BUNDLE   - if defined, configure installation for macOS as a bundle.
+#                      The default is ON.
 ################################################
 
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.13)
 
 # Project info
-project(kchmviewer)
+project(uchmviewer HOMEPAGE_URL "https://github.com/u-235/uchmviewer")
 include(cmake/get-version.cmake)
 set(CMAKE_PROJECT_VERSION ${PROJECT_VERSION})
-# Maybe upgrade the minimum version of CMake to 3.12?
-set(PROJECT_HOMEPAGE_URL "https://github.com/u-235/kchmviewer")
-set(CMAKE_PROJECT_HOMEPAGE_URL ${PROJECT_HOMEPAGE_URL})
 
+include(cmake/use-in.cmake)
+option(USE_KF5            "Use KDE Framework 5"                             OFF)
 option(USE_WEBENGINE      "Use Qt WebEngine"                                OFF)
 option(USE_STATIC_CHMLIB  "Use static link with chm library"                OFF)
-option(USE_DEPLOY_RUNTIME "Copying runtime dependencies for deployment"     OFF)
+option(USE_DEPLOY_RUNTIME "Copy runtime dependencies for deployment"        OFF)
 option(USE_GETTEXT        "Use GNU Gettext for translation"                  ON)
 option(USE_MACOS_BUNDLE   "Install as macOS bundle"                          ON)
+use_in(USE_DBUS           "Use D-Bus integration"                       "Linux")
+use_in(USE_MAC_APP        "Use derived QApplication"                   "Darvin")
 
 # Init cmake
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
-if (NOT DEFINED FRAMEWORK)
-    set(FRAMEWORK Qt5)
-    message(STATUS "Choice <${FRAMEWORK}> as default framework.")
-endif ()
+# Interface library to collect additional dependencies.
+add_library(extra INTERFACE)
 
 # Necessary packages
 # libzip
 find_package(libzip REQUIRED)
 
-if (${FRAMEWORK} STREQUAL Qt4)
-    find_package(Qt4 REQUIRED QtCore QtDBus QtNetwork QtWebKit QtGui QtXml)
-elseif (${FRAMEWORK} STREQUAL Qt5)
-    find_package(Qt5 REQUIRED Core DBus Network PrintSupport Widgets Xml)
-    if (${USE_WEBENGINE})
-        find_package(Qt5 5.9 REQUIRED WebEngine WebEngineWidgets)
-    else ()
-        find_package(Qt5 REQUIRED WebKit WebKitWidgets)
-    endif ()
-elseif (${FRAMEWORK} STREQUAL KDE4)
-    find_package(KDE4 REQUIRED)
-    add_definitions(${KDE4_DEFINITIONS})
-    add_definitions(-DUSE_KDE)
-    include_directories(${KDE4_INCLUDES})
+# Prepare to find Qt modules.
+set(APP_QT_VERSION 5.0)
+set(APP_QT_MODULES Core Network PrintSupport Widgets Xml)
+# Modules for WebKit or WebEngine.
+if (${USE_WEBENGINE})
+    set(APP_QT_VERSION 5.9)
+    list(APPEND APP_QT_MODULES WebEngineWidgets)
+    target_link_libraries(extra INTERFACE Qt::WebEngineWidgets)
+    target_compile_definitions(extra INTERFACE USE_WEBENGINE)
 else ()
-    message(SEND_ERROR "Unknown framework <${FRAMEWORK}>")
+    list(APPEND APP_QT_MODULES WebKit WebKitWidgets)
+    target_link_libraries(extra INTERFACE Qt::WebKit Qt::WebKitWidgets)
+endif ()
+# What version of Qt are we working with?
+find_package(QT ${APP_QT_VERSION} NAMES Qt5 Qt6 REQUIRED)
+set(QT Qt${QT_VERSION_MAJOR})
+# Since Qt 6 QTextCodec moved in the Qt 5 Core Compat module.
+if (${QT_VERSION_MAJOR} GREATER_EQUAL 6)
+    list(APPEND APP_QT_MODULES Core5Compat)
+    target_link_libraries(extra INTERFACE ${QT}::Core5Compat)
 endif ()
 
-if (${USE_WEBENGINE})
-    add_definitions(-DUSE_WEBENGINE)
+if (${USE_DBUS})
+    list(APPEND APP_QT_MODULES DBus)
+    target_link_libraries(extra INTERFACE Qt::DBus)
+    target_compile_definitions(extra INTERFACE USE_DBUS)
+endif ()
+
+if (${USE_MAC_APP})
+    target_compile_definitions(extra INTERFACE USE_MAC_APP)
+endif ()
+
+# Now we know all the required Qt modules.
+find_package(${QT} REQUIRED ${APP_QT_MODULES})
+
+if (${USE_KF5})
+    # Needed by find_package(KF5) below.
+    find_package(ECM REQUIRED)
+    list(APPEND CMAKE_MODULE_PATH ${ECM_MODULE_PATH})
+    find_package(KF5 REQUIRED KDELibs4Support)
+    target_link_libraries(extra INTERFACE KF5::KDELibs4Support)
+    target_compile_definitions(extra INTERFACE USE_KDE)
 endif ()
 
 include(cmake/qt-aliases.cmake)
@@ -74,8 +98,8 @@ add_compile_options(
     $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall>
     $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wextra>)
 
-# For old G++
-add_compile_options($<$<CXX_COMPILER_ID:GNU>:-std=gnu++11>)
+set(CMAKE_CXX_EXTENSIONS ON)
+set(CMAKE_CXX_STANDARD 11)
 
 # Run in those subdirectories
 add_subdirectory(lib)

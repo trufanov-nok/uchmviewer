@@ -20,18 +20,19 @@
 #define QTWEBENGINE_WEBENGINEPAGE_H
 
 #include <QApplication>
+#include <QtDebug>			 // qDebug()
 #include <QObject>
-#include <QDebug>
+#include <Qt>                // Qt::KeyboardModifiers, Qt::ControlModifier, Qt::ShiftModifier
 #include <QWebEnginePage>
 #include <QWebEngineProfile>
 
-#include "dataprovider.h"
-#include "ebook_chm.h"
-#include "ebook_epub.h"
+#include "dataprovider.h" // DataProvider
+#include "ebook_chm.h"    // EBook_CHM::URL_SCHEME_CHM
+#include "ebook_epub.h"   // EBook_EPUB::URL_SCHEME_EPUB
 
-
-#define PRINT_DEBUG ( defined PRINT_DEBUG_ALL || defined PRINT_DEBUG_WEBENGINE || defined PRINT_DEBUG_WEBENGINEPAGE )
-
+#if defined PRINT_DEBUG_ALL || defined PRINT_DEBUG_WEBENGINE || defined PRINT_DEBUG_WEBENGINEPAGE
+    #define PRINT_DEBUG 1
+#endif
 
 class WebEnginePage : public QWebEnginePage
 {
@@ -90,7 +91,7 @@ public:
      * The createWindow function is also used from JavaScript to create a new page, but this
      * does not work in this implementation.
      */
-    QWebEnginePage *createWindow( QWebEnginePage::WebWindowType type )
+    QWebEnginePage *createWindow( QWebEnginePage::WebWindowType type ) override
     {
 #if PRINT_DEBUG
         qDebug() << "[DEBUG] WebEnginePage::createWindow";

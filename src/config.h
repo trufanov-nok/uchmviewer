@@ -19,11 +19,7 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#include <QSettings>
 #include <QString>
-#include <QStringList>
-
-#include "recentfiles.h"
 
 
 class Config
@@ -85,7 +81,6 @@ class Config
 		QString				m_advExternalEditorPath;
 		bool				m_advLayoutDirectionRL;
 		bool				m_advAutodetectEncoding;
-		bool				m_advCheckNewVersion;
 
 	private:
 		QString				m_datapath;

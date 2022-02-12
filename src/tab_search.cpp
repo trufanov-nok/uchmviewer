@@ -16,19 +16,37 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <QApplication>		// qApp
+#include <QDataStream>
+#include <QEventLoop>		// QEventLoop::ExcludeUserInputEvents
 #include <QFile>
 #include <QHeaderView>
+#include <QIODevice>		// QIODevice::ReadOnly, QIODevice::WriteOnly
 #include <QLineEdit>
+#include <QList>
+#include <QMenu>
 #include <QMessageBox>
+#include <QObject>			// QObject::connect
+#include <QPoint>
+#include <QProgressDialog>
+#include <QString>
+#include <Qt>				// Qt::DisplayRole, Qt::ToolTipRole, Qt::WhatsThisRole
+							// Qt::CustomContextMenu
+#include <QTreeWidget>
+#include <QTreeWidgetItem>
+#include <QUrl>
+#include <QVariant>
 #include <QWhatsThis>
 
 #include "i18n.h"
 
-#include "mainwindow.h"
-#include "config.h"
-#include "tab_search.h"
-#include "ebook_search.h"
-#include "showwaitcursor.h"
+#include "config.h"			// pConfig
+#include "ebook_search.h"	// EBookSearch
+#include "mainwindow.h"		// ::mainWindow
+#include "settings.h"		// Settings::search_saved_settings_t
+#include "showwaitcursor.h"	// ShowWaitCursor
+#include "tab_search.h"		// TabSearch, QWidget
+#include "viewwindow.h"		// ViewWindow
 
 
 class SearchTreeViewItem : public QTreeWidgetItem
@@ -240,7 +258,7 @@ bool TabSearch::initSearchEngine( )
 	m_genIndexProgress->reset();
 	m_genIndexProgress->show();
 	
-	::mainWindow->statusBar()->showMessage( tr( "Generating search index..." ) );
+	::mainWindow->statusBar()->showMessage( i18n( "Generating search index..." ) );
 	
 	// Show 'em
 	qApp->processEvents( QEventLoop::ExcludeUserInputEvents );
@@ -250,7 +268,7 @@ bool TabSearch::initSearchEngine( )
 	
 	if ( !file.open( QIODevice::WriteOnly ) )
 	{
-		QMessageBox::critical( 0, "Cannot save index", tr("The index cannot be saved into file %1") .arg( file.fileName() ) );
+		QMessageBox::critical( 0, i18n("Cannot save index"), i18n("The index cannot be saved into file %1") .arg( file.fileName() ) );
 		return false;
 	}
 	
@@ -290,7 +308,7 @@ bool TabSearch::searchQuery( const QString & query, QList< QUrl > * results )
 	
 	if ( !m_searchEngine->hasIndex() )
 	{
-		QMessageBox::information ( this, "No index present", "The index is not present" );
+		QMessageBox::information ( this, i18n("No index present"), i18n("The index is not present") );
 		return false;
 	}
 		

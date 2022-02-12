@@ -16,13 +16,18 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <QDir>
+#include <QByteArray>
+#include <QIODevice>
+#include <QNetworkRequest>
+#include <QObject>
+#include <Qt>              // Qt::QueuedConnection
+#include <QtGlobal>		   // qint64, qPrintable, qDebug, qWarning
+#include <QUrl>
 
+#include "../config.h"     // ::pConfig
+#include "../mainwindow.h" // ::mainWindow
+#include "../mimehelper.h" // MimeHelper::mimeType
 #include "dataprovider.h"
-#include "../viewwindow.h"
-#include "../config.h"
-#include "../mainwindow.h"
-#include "../mimehelper.h"
 
 
 KCHMNetworkReply::KCHMNetworkReply( const QNetworkRequest &request, const QUrl &url )
@@ -76,9 +81,16 @@ QByteArray KCHMNetworkReply::loadResource( const QUrl &url )
 		qWarning( "Could not resolve file %s\n", qPrintable( url.toString() ) );
 
 	}
+	
+	QString mime = MimeHelper::mimeType( url, buf );
 
-    if ( MimeHelper::mimeType( url, buf ) == "text/html" )
-        setHeader( QNetworkRequest::ContentTypeHeader, QString( "text/html; charset=%1" ) .arg( ::mainWindow->chmFile()->currentEncoding() ) );
+    if ( mime == "text/html" || mime == "text/xhtml" || mime == "text/xml" )
+    {
+        QString header = QString( "%1; charset=%2")
+                .arg( mime )
+                .arg( ::mainWindow->chmFile()->currentEncoding() );
+        setHeader( QNetworkRequest::ContentTypeHeader, header );
+    }
 
 	return buf;
 }

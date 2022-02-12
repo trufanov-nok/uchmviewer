@@ -16,12 +16,23 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <QApplication>
-#include <QTextCodec>
+#include <algorithm>
 
-#include "ebook.h"
-#include "ebook_search.h"
-#include "helper_search_index.h"
+#include <QApplication>
+#include <QChar>
+#include <QDataStream>
+#include <QEventLoop>
+#include <QList>
+#include <QString>
+#include <QStringList>
+#include <QTextCodec>
+#include <QtGlobal>		// qPrintable, qDebug, qWarning
+#include <QUrl>
+#include <QVector>
+
+#include "ebook.h"					// EBook
+#include "helper_search_index.h"	// Document, Entry, Index, PosEntry
+
 
 static const int DICT_VERSION = 4;
 
@@ -260,7 +271,7 @@ bool Index::parseDocumentToStringlist(EBook *chmFile, const QUrl& filename, QStr
 		if ( ch == '&' )
 		{
 			state = STATE_IN_HTML_ENTITY;
-			parseentity = QString::null;
+			parseentity = QString();
 			continue;
 		}
 		
@@ -283,7 +294,7 @@ bool Index::parseDocumentToStringlist(EBook *chmFile, const QUrl& filename, QStr
 				tokenlist.push_back( parsedbuf.toLower() );
 			
 			tokenlist.push_back( ch.toLower() );
-			parsedbuf = QString::null;
+			parsedbuf = QString();
 			continue;
 		}
 		
@@ -292,7 +303,7 @@ tokenize_buf:
 		if ( !parsedbuf.isEmpty() )
 		{
 			tokenlist.push_back( parsedbuf.toLower() );
-			parsedbuf = QString::null;
+			parsedbuf = QString();
 		}
 	}
 	
@@ -380,7 +391,7 @@ QList< QUrl > Index::query(const QStringList &terms, const QStringList &termSeq,
 	if ( !termList.count() )
 		return QList< QUrl >();
 	
-	qSort( termList );
+	std::sort( termList.begin(), termList.end() );
 
 	QVector<Document> minDocs = termList.takeFirst().documents;
 	for(QList<Term>::Iterator it = termList.begin(); it != termList.end(); ++it) {
@@ -403,7 +414,8 @@ QList< QUrl > Index::query(const QStringList &terms, const QStringList &termSeq,
 	}
 
 	QList< QUrl > results;
-	qSort( minDocs );
+	std::sort( minDocs.begin(), minDocs.end() );
+
 	if ( termSeq.isEmpty() ) {
 		for(QVector<Document>::Iterator it = minDocs.begin(); it != minDocs.end(); ++it)
 			results << docList.at((int)(*it).docNumber);
@@ -490,4 +502,4 @@ bool Index::searchForPhrases( const QStringList &phrases, const QStringList &wor
 }
 
 
-};
+}

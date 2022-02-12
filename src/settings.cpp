@@ -16,13 +16,17 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <QFile>
-#include <QFileInfo>
 #include <QDataStream>
 #include <QDateTime>
- 
+#include <QFile>
+#include <QFileInfo>
+#include <QIODevice>		// QIODevice::ReadOnly, QIODevice::WriteOnly
+#include <QString>
+#include <QtGlobal>			// qint32, qPrintable, qWarning
+
+#include "config.h"   // pConfig
 #include "settings.h"
-#include "config.h"
+
 
 static qint32 SETTINGS_MAGIC = 0xD8AB4E76;
 static qint32 SETTINGS_VERSION = 4;
@@ -129,15 +133,15 @@ bool Settings::loadSettings( const QString & filename )
 
 	QFileInfo finfo ( filename );
 
-	m_settingsFile = QString::null;
-	m_searchIndex = QString::null;
+	m_settingsFile = QString();
+	m_searchIndex = QString();
 	
 	if ( !finfo.size() )
 		return false;
 	
 	// Init those params, as they'll be used during save the first time even if the file is not here
 	m_currentfilesize = finfo.size();
-	m_currentfiledate = finfo.lastModified().toTime_t();
+	m_currentfiledate = finfo.lastModified().toMSecsSinceEpoch() / 1000;
 	m_settingsFile = pConfig->getEbookSettingFile( filename );
 	m_searchIndex = pConfig->getEbookIndexFile( filename );
 	
@@ -179,19 +183,19 @@ bool Settings::loadSettings( const QString & filename )
 		switch (data)
 		{
 		case MARKER_FILESIZE:
-			stream >> m_currentfilesize;
-			if ( m_currentfilesize != finfo.size() )
+			unsigned int sizestamp;
+			stream >> sizestamp;
+			if ( m_currentfilesize != sizestamp )
 			{
-				m_currentfilesize = finfo.size();
 				return false;
 			}
 			break;
 			
 		case MARKER_FILETIME:
-			stream >> m_currentfiledate;
-			if ( m_currentfiledate != finfo.lastModified().toTime_t() )
+			unsigned int timestamp;
+			stream >> timestamp;
+			if ( m_currentfiledate != timestamp )
 			{
-				m_currentfiledate = finfo.lastModified().toTime_t();
 				return false;
 			}
 			break;

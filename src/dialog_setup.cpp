@@ -16,16 +16,20 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <QFileDialog>
+#include <QCheckBox>
 #include <QMessageBox>
+#include <QObject>		// QObject::connect
+#include <QString>
+#include <QUrl>
+#include <QWidget>
 
-#include "kde-qt.h"
+#include "kde-qt.h" // KFileDialog or QFileDialog
+
 #include "i18n.h"
 
-#include "config.h"
-#include "dialog_setup.h"
-#include "mainwindow.h"
-#include "version.h"
+#include "config.h"		  // Config, pConfig
+#include "dialog_setup.h" // DialogSetup, QDialog
+#include "mainwindow.h"	  // :mainWindow
 
 
 DialogSetup::DialogSetup(QWidget *parent)
@@ -107,8 +111,6 @@ DialogSetup::DialogSetup(QWidget *parent)
 			rbToolbarText->setChecked( true );
 			break;
 	}
-
-	cbCheckForUpdates->setChecked( pConfig->m_advCheckNewVersion );
 }
 
 DialogSetup::~DialogSetup()
@@ -190,7 +192,6 @@ void DialogSetup::accept()
 	
 	// Autodetect encoding
 	Check_Need_Restart( boxAutodetectEncoding, &pConfig->m_advAutodetectEncoding, &need_restart );
-	pConfig->m_advCheckNewVersion = cbCheckForUpdates->isChecked();
 
 	// Layout direction management
 	bool layout_rl = boxLayoutDirectionRL->isChecked();
@@ -215,11 +216,11 @@ void DialogSetup::accept()
 void DialogSetup::browseExternalEditor()
 {
 #if defined (USE_KDE)
-        QString exec = KFileDialog::getOpenFileName( KUrl(), i18n("*|Executables"), this, i18n("Choose an editor executable"));
+	QString exec = KFileDialog::getOpenFileName( QUrl(), i18n("*|Executables"), this, i18n("Choose an editor executable"));
 #else
 	QString exec = QFileDialog::getOpenFileName(this,
 								i18n("Choose an editor executable"), 
-			   					QString::null, 
+			   					QString(), 
 	  							i18n( "Executables (*)") );
 #endif
 

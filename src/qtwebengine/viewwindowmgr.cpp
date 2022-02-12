@@ -16,16 +16,31 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <QAction>
 #include <QClipboard>
+#include <QIcon>
+#include <QKeySequence>
+#include <QMenu>
+#include <QObject>            // QObject::connect
+#include <QPalette>
+#include <QString>
+#include <Qt>                 // Qt::MiddleButton and things
 #include <QTabBar>
+#include <QTabWidget>
+#include <QtGlobal>			  // QT_VERSION, QT_VERSION_CHECK
+#include <QToolButton>
 #include <QMouseEvent>
+#include <QUrl>
+#include <QWebEnginePage>     // QWebEnginePage::{ FindFlag, FindBackward, FindCaseSensitively }
 #include <QWebEngineSettings>
+#include <QWidget>
 
 #include "../i18n.h"
 
-#include "../config.h"
-#include "../mainwindow.h"
-#include "../viewwindow.h"
+#include "../config.h"        // ::pConfig
+#include "../mainwindow.h"    // MainWindow, ::mainWindow
+#include "../settings.h"      // Settings
+#include "../viewwindow.h"    // ViewWindow
 #include "../viewwindowmgr.h"
 
 
@@ -38,7 +53,7 @@ class ViewWindowTabWidget : public QTabWidget
     protected:
         void mouseReleaseEvent ( QMouseEvent * event )
         {
-            if ( event->button() == Qt::MidButton)
+            if ( event->button() == Qt::MiddleButton)
             {
                 int tab = tabBar()->tabAt( event->pos() );
 
@@ -347,6 +362,8 @@ void ViewWindowMgr::onActivateFind()
 
 void ViewWindowMgr::find( bool backward )
 {
+    // TODO make find text in Qt6 again
+#if QT_VERSION < QT_VERSION_CHECK(6, 2, 0)
     QWebEnginePage::FindFlags webkitflags = 0;
 
     if ( checkCase->isChecked() )
@@ -355,41 +372,10 @@ void ViewWindowMgr::find( bool backward )
     if ( backward )
         webkitflags |= QWebEnginePage::FindBackward;
 
-    if ( pConfig->m_browserHighlightSearchResults )
-    {
-        // From the doc:
-        // If the HighlightAllOccurrences flag is passed, the
-        // function will highlight all occurrences that exist
-        // in the page. All subsequent calls will extend the
-        // highlight, rather than replace it, with occurrences
-        // of the new string.
-
-        // If the search text is different, we run the empty string search
-        // to discard old highlighting
-        if ( m_lastSearchedWord != editFind->text() )
-            current()->findText( "", webkitflags );// FIXME | QWebEnginePage::HighlightAllOccurrences
-
-        m_lastSearchedWord = editFind->text();
-
-        // Now we call search with highlighting enabled, while the main search below will have
-        // it disabled. This leads in both having the highlighting results AND working forward/
-        // backward buttons.
-        current()->findText( editFind->text(), webkitflags );// FIXME  | QWebEnginePage::HighlightAllOccurrences
-    }
-
     // Pre-hide the wrapper
     labelWrapped->hide();
 
     current()->findText( editFind->text(), webkitflags, [=](bool found){
-        // If we didn't find anything, enable the wrap and try again
-        if ( !found )
-        {
-            current()->findText( editFind->text(), webkitflags, [=](bool found){
-                if ( found )
-                    labelWrapped->show();
-            } );
-        }
-
         if ( !frameFind->isVisible() )
             frameFind->show();
 
@@ -402,6 +388,7 @@ void ViewWindowMgr::find( bool backward )
 
         editFind->setPalette( p );
     });
+#endif
 }
 
 void ViewWindowMgr::editTextEdited(const QString &)
@@ -435,10 +422,13 @@ void ViewWindowMgr::copyUrlToClipboard()
 
 void ViewWindowMgr::applyBrowserSettings()
 {
+    // TODO make apply settings in Qt6 again
+#if QT_VERSION < QT_VERSION_CHECK(6, 2, 0)
     QWebEngineSettings * setup = QWebEngineSettings::globalSettings();
 
     setup->setAttribute( QWebEngineSettings::AutoLoadImages, pConfig->m_browserEnableImages );
     setup->setAttribute( QWebEngineSettings::JavascriptEnabled, pConfig->m_browserEnableJS );
     setup->setAttribute( QWebEngineSettings::PluginsEnabled, pConfig->m_browserEnablePlugins );
     setup->setAttribute( QWebEngineSettings::LocalStorageEnabled, pConfig->m_browserEnableLocalStorage );
+#endif
 }

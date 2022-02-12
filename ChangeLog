@@ -1,3 +1,23 @@
+2021-11-12 u-235 <nicegorov@yandex.com>
+    - v8.2-rc published
+
+2022-02-08 u-235 <nicegorov@yandex.com>
+    - The application is built with Qt6.2, but had to disable printing and rely on default settings when browsing pages.
+
+2022-01-24 u-235 <nicegorov@yandex.com>
+    - Added support for KF5.
+    - Added support for Qt6 in build scripts.
+    - Version changed to 8.2
+
+2022-01-14 u-235 <nicegorov@yandex.com>
+    - Ended support for Qt4 and KDE4 on the master branch.
+
+2021-11-21 u-235 <nicegorov@yandex.com>
+    - Renamed fork Kchmviewer => uChmViewer.
+
+2021-11-16 u-235 <nicegorov@yandex.com>
+    - Fixed marking translatable strings and updated translation.
+
 2021-11-15 u-235 <nicegorov@yandex.com>
     - v8.1-rc2 published
     - Fixed build failure in src/qtwebkit/viewwindowmgr.cpp.

@@ -16,41 +16,64 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <cstdio>			// fprintf, stderr
+#include <cstdlib>			// exit
+
+#include <QApplication>		// aApp
+#include <QAction>
+#include <QActionGroup>
+#include <QByteArray>
+#include <QCloseEvent>
 #include <QDateTime>
 #include <QDesktopServices>
+#include <QDialog>
 #include <QDir>
-#include <QFileDialog>
+#include <QEvent>
+#include <QFile>
 #include <QFileInfo>
+#include <QIODevice>		// QIODevice::WriteOnly
+#include <QKeySequence>
+#include <QList>
 #include <QMessageBox>
+#include <QObject>			// QObject::connect
+#include <QPixmap>
 #include <QProcess>
-#include <QShortcut>
+#include <QProgressDialog>
 #include <QSettings>
+#include <QSharedMemory>
+#include <QSize>
+#include <QShortcut>
+#include <QString>
+#include <QStringList>
+#include <QSysInfo>
+#include <Qt>				// Qt::LeftToRight, Qt::RightToLeft, Qt::Vertical, Qt::WA_DeleteOnClose
+#include <QtGlobal>			// qreal, qPrintable, qDebug, qFatal, qWarning
 #include <QTemporaryFile>
 #include <QTextEdit>
 #include <QTextStream>
 #include <QTimer>
+#include <QUrl>
+#include <QVariant>
 #include <QWhatsThis>
 
-#include "kde-qt.h"
+#include "kde-qt.h"	// KRun or QDesktopServices, KFileDialog or QFileDialog
+
 #include "i18n.h"
 
-#include "mainwindow.h"
-#include "config.h"
-#include "settings.h"
-#include "viewwindow.h"
-#include "viewwindowmgr.h"
-#include "dialog_setup.h"
-#include "recentfiles.h"
-#include "navigationpanel.h"
-#include "toolbarmanager.h"
-#include "version.h"
-#include "textencodings.h"
-#include "ui_dialog_about.h"
+#include "config.h"				// pConfig
+#include "dialog_setup.h"		// DialogSetup
+#include "ebook.h"				// EBook
+#include "mainwindow.h"			// MainWindow, QMainWindow
+#include "navigationpanel.h"	// NavigationPanel
+#include "recentfiles.h"		// RecentFiles
+#include "settings.h"			// Settings
+#include "textencodings.h"		// TextEncodings
+#include "toolbarmanager.h"		// ToolbarManager
+#include "ui_dialog_about.h"	// Ui::DialogAbout
+#include "version.h"			// APP_VERSION_MAJOR, APP_VERSION_MINOR
+#include "viewwindow.h"			// ViewWindow
+#include "viewwindowmgr.h"		// ViewWindowMgr
 
-#ifdef Q_WS_X11
-    #include <QX11Info>
-    #include <X11/Xlib.h>
-#endif
 
 // Maximum memory size for inter-application communication
 static const int SHARED_MEMORY_SIZE = 4096;
@@ -115,7 +138,7 @@ MainWindow::MainWindow( const QStringList& arguments )
 
 	statusBar()->show();
 
-	qApp->setWindowIcon( QPixmap(":/images/kchmviewer.png") );
+	qApp->setWindowIcon( QPixmap(":/images/uchmviewer.png") );
 
 	if ( pConfig->m_numOfRecentFiles > 0 )
 	{
@@ -236,19 +259,6 @@ void MainWindow::checkForSharedMemoryMessage()
         parseCmdLineArgs( args, true );
 }
 
-void MainWindow::checkNewVersionAvailable()
-{
-	// Create a New version available object if necessary. This object will auto-delete itself
-	CheckNewVersion * pNewVer = new CheckNewVersion();
-
-	connect( pNewVer, SIGNAL(error(int)), this, SLOT(newVerAvailError(int)) );
-	connect( pNewVer, SIGNAL(newVersionAvailable( NewVersionMetaMap )), this, SLOT(newVerAvailable(NewVersionMetaMap)) );
-
-	pNewVer->setUrl( "http://www.kchmviewer.net/latestversion.txt" );
-	pNewVer->start();
-}
-
-
 bool MainWindow::loadFile ( const QString &loadFileName, bool call_open_page )
 {
 	QString fileName = loadFileName;
@@ -298,7 +308,11 @@ bool MainWindow::loadFile ( const QString &loadFileName, bool call_open_page )
 		navSetForwardEnabled( false );
 
 		m_viewWindowMgr->invalidate();
-		refreshCurrentBrowser();
+
+        // If the e-book supports encodings, below will be a call to setTextEncoding,
+        // which in turn will call refreshCurrentBrowser.
+        if ( !m_ebookFile->hasFeature( EBook::FEATURE_ENCODING ) )
+            refreshCurrentBrowser();
 
 		if ( m_currentSettings->loadSettings (fileName) )
 		{
@@ -413,11 +427,11 @@ bool MainWindow::openPage( const QUrl& url, unsigned int flags )
 				 i18n("%1 - remote link clicked - %2") . arg(QCoreApplication::applicationName()) . arg(otherlink),
 				 i18n("A remote link %1 will start the external program to open it.\n\nDo you want to continue?").arg( url.toString() ),
 				 i18n("&Yes"), i18n("&No"),
-				 QString::null, 0, 1 ) )
+				 QString(), 0, 1 ) )
 					return false;
 				
 			// no break! should continue to open.
-
+			//-fallthrough
 		case Config::ACTION_ALWAYS_OPEN:
 #if defined (USE_KDE)
 			new KRun ( url, 0 );
@@ -561,7 +575,6 @@ void MainWindow::printHelpAndExit()
             "  -search <query>   searches for query in the Search tab, and activate the first entry if found\n"
             "  -token <token>    specifies the application token; see the integration reference\n"
             "  -background       start minimized\n"
-            "  -novcheck         disable check for new version even if enabled in configuration\n"
              , qPrintable( m_arguments[0] ) );
 
     exit (1);
@@ -570,7 +583,7 @@ void MainWindow::printHelpAndExit()
 bool MainWindow::parseCmdLineArgs(const QStringList& args , bool from_another_app )
 {
     QString filename, search_query, search_index, open_url, search_toc;
-    bool do_autotest = false, disable_vcheck = false, force_background = false;
+    bool do_autotest = false, force_background = false;
 
 	// argv[0] in Qt is still a program name
     for ( int i = 1; i < args.size(); i++  )
@@ -589,11 +602,9 @@ bool MainWindow::parseCmdLineArgs(const QStringList& args , bool from_another_ap
             i++; // ignore
         else if ( args[i] == "-background" )
             force_background = true;
-        else if ( args[i] == "-novcheck" )
-            disable_vcheck = true;
         else if ( args[i] == "-v" || args[i] == "--version" )
         {
-            printf("kchmviewer version %d.%d built at %s %s\n", APP_VERSION_MAJOR, APP_VERSION_MINOR, __DATE__, __TIME__ );
+            printf("uChmViewer version %d.%d built at %s %s\n", APP_VERSION_MAJOR, APP_VERSION_MINOR, __DATE__, __TIME__ );
             exit( 0 );
         }
         else if ( args[i] == "--url" || args[i] == "-showPage" )
@@ -616,27 +627,15 @@ bool MainWindow::parseCmdLineArgs(const QStringList& args , bool from_another_ap
         }
 	}
 
-    // Check for a new version if needed
-    if ( pConfig->m_advCheckNewVersion && !disable_vcheck )
-    {
-        QSettings settings;
-
-        if ( settings.contains( "advanced/lastupdate" ) )
-        {
-            QDateTime lastupdate = settings.value( "advanced/lastupdate" ).toDateTime();
-
-            if ( lastupdate.secsTo( QDateTime::currentDateTime() ) >= 86400 * 7 ) // seven days
-                checkNewVersionAvailable();
-        }
-    }
-
     // Opening the file?
 	if ( !filename.isEmpty() )
 	{
         // If we have already opened the same file, no need to reopen it again
         if ( !m_ebookFile || QDir(m_ebookFilename) != QDir(filename) )
+        {
             if ( !loadFile( filename ) )
                 return true; // skip the latest checks, but do not exit from the program
+        }
 
 		if ( !open_url.isEmpty() )
 		{
@@ -677,25 +676,6 @@ bool MainWindow::parseCmdLineArgs(const QStringList& args , bool from_another_ap
             showMinimized();
         else if ( from_another_app )
         {
-#ifdef Q_WS_X11
-            // On Linux - at least on KDE - activating the foreground window
-            // via activateWindow(); raise(); only works twice. Then it does not
-            // work anymore, most likely because of some internal counter in Qt.
-            // The code below, however, works fine.
-            Display * display = x11Info().display();
-            WId win = winId();
-
-            XEvent event = { 0 };
-            event.xclient.type = ClientMessage;
-            event.xclient.serial = 0;
-            event.xclient.send_event = True;
-            event.xclient.message_type = XInternAtom( display, "_NET_ACTIVE_WINDOW", False);
-            event.xclient.window = win;
-            event.xclient.format = 32;
-
-            XSendEvent( display, DefaultRootWindow(display), False, SubstructureRedirectMask | SubstructureNotifyMask, &event );
-            XMapRaised( display, win );
-#else
             // On Windows it is not possible to activate the window of a non-active process. From MSDN:
             // https://msdn.microsoft.com/en-us/library/windows/desktop/ms633539%28v=vs.85%29.aspx
             //
@@ -704,7 +684,6 @@ bool MainWindow::parseCmdLineArgs(const QStringList& args , bool from_another_ap
             activateWindow();
             raise();
             show();
-#endif
         }
 
 		return true;
@@ -898,14 +877,14 @@ void MainWindow::actionExtractCHM()
 	
 #if defined (USE_KDE)
 	QString outdir = KFileDialog::getExistingDirectory (
-		KUrl(),
+		QUrl(),
 		this,
 		i18n("Choose a directory to store CHM content") );
 #else
 	QString outdir = QFileDialog::getExistingDirectory (
 		this,
 		i18n("Choose a directory to store CHM content"),
-		QString::null,
+		QString(),
 		QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks );
 #endif
 	
@@ -918,12 +897,12 @@ void MainWindow::actionExtractCHM()
 	if ( !m_ebookFile || !m_ebookFile->enumerateFiles( files ) )
 		return;
 
-	KQProgressModalDialog progress( i18n("Extracting CHM content"), 
-	                                i18n("Extracting files..."), 
-	                                i18n("Abort"), 
-	                                files.size(), 
-	                                this );
-	
+	QProgressDialog progress( i18n("Extracting CHM content"), 
+                              i18n("Extracting files..."),
+                              1,
+                              files.size(),
+                              this );
+
 	for ( int i = 0; i < files.size(); i++ )
 	{
 		progress.setValue( i );
@@ -932,7 +911,7 @@ void MainWindow::actionExtractCHM()
 		{
 			qApp->processEvents();
 
-			if ( progress.wasCancelled() )
+			if ( progress.wasCanceled() )
 				break;
 		}
 
@@ -1004,13 +983,20 @@ void MainWindow::actionFontSizeDecrease()
 
 void MainWindow::actionViewHTMLsource()
 {
-	QString text;
-
-	if ( !m_ebookFile->getFileContentAsString( text, currentBrowser()->getOpenedPage() ) || text.isEmpty() )
+	if ( !m_ebookFile )
+	{
 		return;
+	}
+
+	QUrl page = currentBrowser()->getOpenedPage();
 
 	if ( pConfig->m_advUseInternalEditor )
 	{
+		QString text;
+
+		if ( !m_ebookFile->getFileContentAsString( text, page ) || text.isEmpty() )
+			return;
+
 		QTextEdit * editor = new QTextEdit ( 0 );
 		editor->setPlainText( text );
 		editor->setWindowTitle( i18n("HTML source") );
@@ -1019,6 +1005,11 @@ void MainWindow::actionViewHTMLsource()
 	}
 	else
 	{
+		QByteArray rawText;
+
+		if ( !m_ebookFile->getFileContentAsBinary( rawText, page ) || rawText.isEmpty() )
+			return;
+
 		QTemporaryFile * tf = new QTemporaryFile();
 		m_tempFileKeeper.append( tf );
 
@@ -1027,19 +1018,19 @@ void MainWindow::actionViewHTMLsource()
 			qWarning("Cannot open created QTemporaryFile: something is wrong with your system");
 			return;
 		}
-		
-		tf->write( text.toUtf8() );
+
+		tf->write( rawText );
 		tf->seek( 0 );
-		
+
 		// Run the external editor
 		QStringList arguments;
 		arguments.push_back( tf->fileName() );
-		
+
 		if ( !QProcess::startDetached( pConfig->m_advExternalEditorPath, arguments, "." ) )
 		{
 			QMessageBox::warning( 0,
-								  "Cannot start external editor", 
-								  tr("Cannot start external editor %1.\nMake sure the path is absolute!") .arg( pConfig->m_advExternalEditorPath ) );
+								  i18n("Cannot start external editor"), 
+								  i18n("Cannot start external editor %1.\nMake sure the path is absolute!") .arg( pConfig->m_advExternalEditorPath ) );
 			delete m_tempFileKeeper.takeLast();
 		}
 	}
@@ -1095,26 +1086,28 @@ void MainWindow::actionLocateInContentsTab()
 
 void MainWindow::actionAboutApp()
 {
-#if QT_VERSION >= 0x050000
-    QString info = QString( "<br>Built for %1 arch using %2 ABI<br>Running on %3, Qt version %4" )
+    QString info = QString( i18n("Built for %1 arch using %2 ABI<br>Running on %3, Qt version %4") )
             .arg( QSysInfo::buildCpuArchitecture() )
             .arg( QSysInfo::buildAbi() )
             .arg( QSysInfo::prettyProductName() )
             .arg( qVersion() );
-#else
-    QString info = QString( "<br>Using Qt version %1") .arg( qVersion() );
-#endif
 
-    QString abouttext = i18n( "<html><b>kchmviewer version %1.%2</b>%3<br><br>"
-                              "Copyright (C) George Yunaev, 2004-2015<br>"
-							  "<a href=\"mailto:gyunaev@ulduzsoft.com\">gyunaev@ulduzsoft.com</a><br>"
-							  "<a href=\"http://www.ulduzsoft.com/kchmviewer\">http://www.ulduzsoft.com/kchmviewer</a><br><br>"
-							  "Licensed under GNU GPL license version 3.</html>" )
+    QString abouttext = i18n( "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">"
+                              "<html><head><meta name=\"qrichtext\" content=\"1\" /></head>"
+                              "<body>"
+                              "<p>This is a fork of KchmViewer, a chm and epub file viewer.<br>"
+                              "KchmViewer is written by Georgy Yunaev.<br>"
+                              "uChmViewer version <b>%1.%2</b></p>"
+                              "<p>%3</p>"
+                              "<p>Copyright (C) George Yunaev, 2004-2015<br>"
+                              "Copyright (C) Nick Egorrov, 2021</p>"
+							  "<p>Licensed under GNU GPL license version 3.</p>"
+							  "</body></html>" )
                                 .arg(APP_VERSION_MAJOR) .arg(APP_VERSION_MINOR) .arg( info );
 
 	// It is quite funny that the argument order differs
 #if defined (USE_KDE)
-	KMessageBox::about( this, abouttext, i18n("About kchmviewer") );
+	KMessageBox::about( this, abouttext, i18n("About uChmViewer") );
 #else
 	QDialog dlg;
 	Ui::DialogAbout ui;
@@ -1178,7 +1171,6 @@ void MainWindow::setupActions()
 	// Settings
 	connect( settings_SettingsAction, SIGNAL( triggered() ), this, SLOT( actionChangeSettings() ) );
 	connect( actionEdit_toolbars, SIGNAL( triggered() ), this, SLOT( actionEditToolbars() ) );
-	connect( actionCheck_for_updates, SIGNAL(triggered()), this, SLOT(checkNewVersionAvailable()) );
 
 	// Help menu
 	connect( actionAbout_kchmviewer, SIGNAL(triggered()), this, SLOT(actionAboutApp()) );
@@ -1284,12 +1276,12 @@ void MainWindow::setupActions()
 	// Context menu
 	m_contextMenu = new QMenu( this );
 	
-	m_contextMenu->addAction ( "&Open this link in a new tab",
+	m_contextMenu->addAction ( i18n("&Open this link in a new tab"),
 	                          this, 
 	                          SLOT( onOpenPageInNewTab() ), 
 	                          QKeySequence( "Shift+Enter" ) );
 	
-	m_contextMenu->addAction ( "&Open this link in a new background tab", 
+	m_contextMenu->addAction ( i18n("&Open this link in a new background tab"), 
 	                          this, 
 	                          SLOT( onOpenPageInNewBackgroundTab() ),
 	                          QKeySequence( "Ctrl+Enter" ) );
@@ -1361,7 +1353,7 @@ void MainWindow::setupLangEncodingMenu()
 		
 		QString text = i18n("%1 ( %2 )") .arg( languages[idx] ) .arg( qencodings[idx] );
 		action->setText( text );
-		action->setData( qVariantFromValue( qencodings[idx] ) );
+		action->setData( QVariant::fromValue( qencodings[idx] ) );
 		action->setCheckable( true );
 		
 		// Add to the action group, so only one is checkable
@@ -1457,38 +1449,6 @@ void MainWindow::updateActions()
 	nav_actionPreviousPage->setEnabled( enabled );
 	nav_actionNextPageToc->setEnabled( enabled );
 	m_navPanel->setEnabled( enabled );
-}
-
-void MainWindow::newVerAvailError( int  )
-{
-	statusBar()->showMessage( tr("Unable to check whether a new version is available"), 2000 );
-}
-
-void MainWindow::newVerAvailable( NewVersionMetaMap metadata )
-{
-	QSettings().setValue( "advanced/lastupdate", QDateTime::currentDateTime() );
-
-	// What is the latest version?
-	QString current = QString("%1.%2") .arg(APP_VERSION_MAJOR) .arg(APP_VERSION_MINOR);
-
-    if ( metadata["Version"].toFloat() > current.toFloat() )
-	{
-		if ( QMessageBox::question( 0,
-				tr("New version available"),
-				tr("<html>A new version <b>%1</b> of Kchmviewer is available!<br><br>"
-				   "You are currently using version %3.<br>"
-				   "Do you want to visit the application web site %2?")
-						.arg( metadata["Version"] )
-						.arg( metadata["URL"] )
-						.arg( current ),
-					QMessageBox::Yes | QMessageBox::No,
-					QMessageBox::Yes ) == QMessageBox::No )
-				return;
-
-		QDesktopServices::openUrl ( QUrl(metadata["URL"]) );
-	}
-	else
-		statusBar()->showMessage( tr("Checked for updates; you are using the latest version of kchmviewer"), 2000 );
 }
 
 void MainWindow::actionEditToolbars()

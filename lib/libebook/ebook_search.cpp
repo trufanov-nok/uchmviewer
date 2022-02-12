@@ -17,9 +17,20 @@
  */
 
 #include <QApplication>
+#include <QChar>
+#include <QDataStream>
+#include <QEventLoop>	// QEventLoop::ExcludeUserInputEvents
+#include <QList>
+#include <QObject>		// QObject::connect
+#include <Qt>			// Qt::CaseInsensitive
+#include <QString>
+#include <QStringList>
+#include <QUrl>
 
-#include "ebook.h"
+#include "ebook.h"					// EBook
 #include "ebook_search.h"
+#include "helper_search_index.h"	// QtAs::Index
+
 
 // Helper class to simplity state management and data keeping
 class SearchDataKeeper
@@ -203,7 +214,7 @@ bool EBookSearch::searchQuery(const QString & query, QList< QUrl > * results, EB
 
 		// Just add the word; it is most likely a space or terminated by tokenizer.
 		keeper.addTerm( term );
-		term = QString::null;			
+		term = QString();			
 	}
 	
 	keeper.addTerm( term );
